@@ -28,9 +28,9 @@ jobs:
   mettre-a-jour:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -53,15 +53,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/tirages.csv docs
           if git diff --cached --quiet; then
-            echo "Aucun changement : pas de nouveau tirage publié."
+            echo "Rien à committer."
+          elif git diff --cached --quiet -- data/tirages.csv; then
+            # Le jeu de données n'a pas bougé : seul l'horodatage du site change.
+            git commit -m "Régénération du tableau de bord"
+            git pull --rebase --autostash && git push
           else
-            DERNIER=$(python -c "import csv,sys;rows=list(csv.DictReader(open('data/tirages.csv',encoding='utf-8')));print(rows[-1]['date'],rows[-1]['boules'],'+',rows[-1]['chance'])")
+            # Colonnes du jeu de données : date,n,jour,ere,boules,chance,...
+            DERNIER=$(tail -n 1 data/tirages.csv | awk -F, '{print $1 " : " $5 " + " $6}')
             git commit -m "Tirage du $DERNIER"
-            git pull --rebase --autostash
-            git push
+            git pull --rebase --autostash && git push
           fi
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
@@ -73,4 +77,4 @@ jobs:
       url: ${{ steps.deploiement.outputs.page_url }}
     steps:
       - id: deploiement
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
