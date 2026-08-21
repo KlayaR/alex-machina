@@ -1,0 +1,76 @@
+name: Mise à jour après tirage
+
+# Le Loto est tiré les lundi, mercredi et samedi à 20 h 15 (Paris). Les archives
+# CSV de la FDJ sont republiées dans la foulée, avec un délai variable — d'où
+# une exécution le soir même et une session de rattrapage le lendemain matin.
+# Les heures cron sont en UTC : 21 h 00 UTC = 23 h 00 à Paris l'été, 22 h l'hiver.
+on:
+  schedule:
+    - cron: "0 21 * * 1,3,6"   # soir du tirage
+    - cron: "0 6 * * 2,4,0"    # rattrapage le lendemain matin
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - ".github/workflows/tirage.yml"
+
+concurrency:
+  group: tirage
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  mettre-a-jour:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Récupérer les derniers tirages
+        # Si la FDJ est injoignable, on continue : la base est reconstruite
+        # depuis data/tirages.csv et le site est republié tel quel.
+        continue-on-error: true
+        run: python -m alex_machina --db data/loto.sqlite update --full
+        env:
+          PYTHONPATH: src
+
+      - name: Reconstruire le tableau de bord
+        run: python -m alex_machina --db data/loto.sqlite build --output docs
+        env:
+          PYTHONPATH: src
+
+      - name: Publier les changements
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/tirages.csv docs
+          if git diff --cached --quiet; then
+            echo "Aucun changement : pas de nouveau tirage publié."
+          else
+            DERNIER=$(python -c "import csv,sys;rows=list(csv.DictReader(open('data/tirages.csv',encoding='utf-8')));print(rows[-1]['date'],rows[-1]['boules'],'+',rows[-1]['chance'])")
+            git commit -m "Tirage du $DERNIER"
+            git pull --rebase --autostash
+            git push
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  publier:
+    needs: mettre-a-jour
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

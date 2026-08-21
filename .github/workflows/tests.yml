@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Une fois par semaine, on vérifie aussi que la FDJ n'a pas changé ses URL
+    # ni le format de ses fichiers — c'est la seule dépendance externe du projet.
+    - cron: "0 8 * * 1"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: pip install pytest ruff
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Tests unitaires
+        run: pytest
+
+      - name: Tests d'intégration FDJ
+        if: github.event_name == 'schedule'
+        env:
+          ALEX_MACHINA_NETWORK_TESTS: "1"
+        run: pytest tests/test_sources.py

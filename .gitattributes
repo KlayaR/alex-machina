@@ -1,0 +1,4 @@
+# Normalisation LF partout : le job GitHub Actions tourne sous Linux.
+* text=auto eol=lf
+*.png binary
+*.sqlite binary

@@ -1,0 +1,17 @@
+# La base est un artefact : le CSV versionné suffit à la reconstruire.
+data/loto.sqlite
+data/.cache/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+.DS_Store
+Thumbs.db

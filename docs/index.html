@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alex Machina — l'oracle honnête du Loto</title>
+<meta name="description" content="Analyse statistique complète de l'historique du Loto français, prédictions assumées comme inutiles, et démonstration chiffrée qu'aucune méthode ne bat le hasard.">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --surface-alt: #efedea;
+  --border: #ddd9d3;
+  --text: #1c1b19;
+  --muted: #6b6862;
+  --accent: #4c3bcf;
+  --accent-soft: #e8e5fb;
+  --chance: #c8102e;
+  --positive: #1f8a5f;
+  --negative: #c0492c;
+  --shadow: 0 1px 2px rgba(28,27,25,.06), 0 8px 24px rgba(28,27,25,.05);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14131a;
+    --surface: #1d1c24;
+    --surface-alt: #26242f;
+    --border: #33313c;
+    --text: #eceaf2;
+    --muted: #9c98a8;
+    --accent: #a99bff;
+    --accent-soft: #2b2740;
+    --chance: #ff7a8a;
+    --positive: #5ad2a0;
+    --negative: #ff8f6b;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+header.hero { padding: 56px 0 28px; }
+.eyebrow { font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+h1 { font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1.06; margin: 0 0 12px; letter-spacing: -.02em; }
+h1 .machina { color: var(--accent); }
+.lede { font-size: 1.12rem; color: var(--muted); max-width: 62ch; margin: 0; }
+.notice {
+  margin: 28px 0 0; padding: 16px 18px; border-radius: var(--radius);
+  background: var(--accent-soft); border: 1px solid var(--border);
+  font-size: .93rem; color: var(--text);
+}
+.notice strong { color: var(--accent); }
+section { margin-top: 56px; }
+h2 { font-size: 1.5rem; margin: 0 0 6px; letter-spacing: -.01em; }
+h2 .num { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 10px; font-weight: 400; }
+.sub { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow);
+}
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(252px, 1fr)); }
+.balls { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 10px; }
+.ball {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  font-weight: 600; font-variant-numeric: tabular-nums; font-size: .95rem;
+}
+.ball-chance { background: var(--chance); border-color: var(--chance); color: #fff; }
+.plus { display: grid; place-items: center; height: 36px; color: var(--muted); font-size: 1.1rem; }
+.pred-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.pred-title h3 { margin: 0; font-size: .98rem; }
+.tag { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.pred-why { font-size: .88rem; color: var(--muted); margin: 0; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .value { font-size: 1.9rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat .label { font-size: .84rem; color: var(--muted); }
+.chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; overflow: visible; }
+.bar { fill: var(--accent); opacity: .82; }
+.bar-strong { fill: var(--chance); opacity: 1; }
+.bar-positive { fill: var(--positive); }
+.bar-negative { fill: var(--negative); }
+.chart-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.chart-ref-label, .chart-axis, .chart-label, .chart-value {
+  fill: var(--muted); font-size: 10px; font-family: inherit;
+}
+.chart-value, .chart-label { fill: var(--text); font-size: 11px; }
+.spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.scroll-x { overflow-x: auto; }
+th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+thead th { color: var(--muted); font-weight: 500; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { font-variant-numeric: tabular-nums; }
+.pos { color: var(--positive); } .neg { color: var(--negative); }
+.verdict {
+  border-left: 3px solid var(--accent); padding: 4px 0 4px 18px; margin: 20px 0 0;
+  font-size: 1.05rem;
+}
+footer { margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: .86rem; }
+footer a { color: var(--accent); }
+.mono { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <p class="eyebrow">Loto français · 2 797 tirages analysés</p>
+  <h1>Alex <span class="machina">Machina</span></h1>
+  <p class="lede">Une machine qui prédit les numéros du Loto, et qui démontre
+  méthodiquement, sur cinquante ans de données officielles, que sa propre
+  prédiction ne vaut rien.</p>
+  <div class="notice"><strong>À lire avant tout le reste.</strong> Aucun de ces chiffres ne permet de prédire quoi que ce soit. Un tirage du Loto est indépendant de tous les précédents : les 1 906 884 combinaisons ont exactement la même probabilité, à chaque tirage, pour toujours. Ce site existe pour le montrer, pas pour le contourner.</div>
+</header>
+
+<section id="predictions">
+  <h2><span class="num">01</span>Les grilles du prochain tirage</h2>
+  <p class="sub">Sept oracles, sept méthodes, sept grilles pour le tirage du
+  <strong>samedi 22 août 2026</strong>. Elles sont reproductibles :
+  même historique, même graine <code>2026-08-22</code>, mêmes numéros. Et
+  toutes ont exactement la même probabilité de sortir — une sur 19 068 840.</p>
+  <div class="grid grid-3"><article class="card"><div class="pred-title"><h3>Hasard pur</h3><span class="tag">uniforme</span></div><div class="balls"><span class="ball">01</span><span class="ball">04</span><span class="ball">30</span><span class="ball">36</span><span class="ball">40</span><span class="plus">+</span><span class="ball ball-chance">9</span></div><p class="pred-why">Tirage uniforme, exactement comme la machine de la FDJ.</p></article><article class="card"><div class="pred-title"><h3>Numéros chauds</h3><span class="tag">chauds</span></div><div class="balls"><span class="ball">05</span><span class="ball">08</span><span class="ball">23</span><span class="ball">32</span><span class="ball">47</span><span class="plus">+</span><span class="ball ball-chance">7</span></div><p class="pred-why">Les numéros qui sortent le plus souvent ces deux dernières années.</p></article><article class="card"><div class="pred-title"><h3>Numéros froids</h3><span class="tag">froids</span></div><div class="balls"><span class="ball">20</span><span class="ball">21</span><span class="ball">22</span><span class="ball">35</span><span class="ball">41</span><span class="plus">+</span><span class="ball ball-chance">7</span></div><p class="pred-why">Les numéros les plus rares récemment, pour les partisans du rattrapage.</p></article><article class="card"><div class="pred-title"><h3>Retardataires</h3><span class="tag">retards</span></div><div class="balls"><span class="ball">16</span><span class="ball">17</span><span class="ball">36</span><span class="ball">40</span><span class="ball">46</span><span class="plus">+</span><span class="ball ball-chance">8</span></div><p class="pred-why">Les numéros qui n&#x27;ont pas été vus depuis anormalement longtemps.</p></article><article class="card"><div class="pred-title"><h3>Compagnons de route</h3><span class="tag">compagnons</span></div><div class="balls"><span class="ball">26</span><span class="ball">29</span><span class="ball">30</span><span class="ball">33</span><span class="ball">34</span><span class="plus">+</span><span class="ball ball-chance">1</span></div><p class="pred-why">Affinités de co-occurrence avec la combinaison précédente.</p></article><article class="card"><div class="pred-title"><h3>Momentum</h3><span class="tag">momentum</span></div><div class="balls"><span class="ball">05</span><span class="ball">12</span><span class="ball">22</span><span class="ball">26</span><span class="ball">32</span><span class="plus">+</span><span class="ball ball-chance">7</span></div><p class="pred-why">Fréquences récentes, le passé lointain comptant de moins en moins.</p></article><article class="card"><div class="pred-title"><h3>Alex Machina</h3><span class="tag">machina</span></div><div class="balls"><span class="ball">10</span><span class="ball">17</span><span class="ball">23</span><span class="ball">34</span><span class="ball">41</span><span class="plus">+</span><span class="ball ball-chance">1</span></div><p class="pred-why">Consensus de tous les signaux, calibré sur la forme des tirages passés.</p></article></div>
+</section>
+
+<section id="dernier">
+  <h2><span class="num">02</span>Le dernier tirage</h2>
+  <p class="sub">Résultat officiel du mercredi 19 août 2026, tel que publié par la FDJ.</p>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="balls"><span class="ball">14</span><span class="ball">18</span><span class="ball">21</span><span class="ball">26</span><span class="ball">44</span><span class="plus">+</span><span class="ball ball-chance">7</span></div>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Rang</th><th class="num">Gagnants</th><th class="num">Rapport</th></tr></thead>
+        <tbody><tr><td>5 numéros + n° chance</td><td class="num">0</td><td class="num">2 000 000,00 €</td></tr><tr><td>5 numéros</td><td class="num">2</td><td class="num">66 582,20 €</td></tr><tr><td>4 numéros + n° chance</td><td class="num">53</td><td class="num">613,20 €</td></tr><tr><td>4 numéros</td><td class="num">357</td><td class="num">328,30 €</td></tr><tr><td>3 numéros + n° chance</td><td class="num">2 591</td><td class="num">27,00 €</td></tr><tr><td>3 numéros</td><td class="num">15 710</td><td class="num">16,00 €</td></tr><tr><td>2 numéros + n° chance</td><td class="num">34 259</td><td class="num">5,70 €</td></tr><tr><td>2 numéros</td><td class="num">211 290</td><td class="num">3,60 €</td></tr><tr><td>n° chance seul</td><td class="num">430 962</td><td class="num">2,20 €</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="stat"><span class="value">2 000 000 €</span>
+      <span class="label">cagnotte du rang 1 à ce tirage</span></div>
+      <svg class="chart sparkline" viewBox="0 0 320 48" preserveAspectRatio="none" role="img"><polyline class="spark-line" points="0.0,19.2 5.4,15.9 10.8,12.7 16.3,9.5 21.7,6.2 27.1,3.0 32.5,34.2 38.0,45.0 43.4,41.8 48.8,45.0 54.2,41.8 59.7,38.5 65.1,35.3 70.5,32.1 75.9,28.8 81.4,25.6 86.8,22.4 92.2,19.2 97.6,15.9 103.1,12.7 108.5,9.5 113.9,6.2 119.3,45.0 124.7,41.8 130.2,19.2 135.6,15.9 141.0,12.7 146.4,9.5 151.9,45.0 157.3,41.8 162.7,38.5 168.1,45.0 173.6,41.8 179.0,38.5 184.4,35.3 189.8,32.1 195.3,45.0 200.7,45.0 206.1,45.0 211.5,45.0 216.9,41.8 222.4,38.5 227.8,19.2 233.2,15.9 238.6,12.7 244.1,9.5 249.5,6.2 254.9,3.0 260.3,45.0 265.8,41.8 271.2,38.5 276.6,35.3 282.0,32.1 287.5,28.8 292.9,25.6 298.3,22.4 303.7,45.0 309.2,45.0 314.6,45.0 320.0,45.0"/></svg>
+      <p class="pred-why">Évolution du rang 1 sur les 60 derniers tirages.
+      Les paliers correspondent aux jackpots remportés, qui remettent la cagnotte à zéro.</p>
+      <div class="grid grid-2" style="margin-top:18px">
+        <div class="stat"><span class="value mono">695 224</span>
+          <span class="label">gagnants, tous rangs confondus</span></div>
+        <div class="stat"><span class="value mono">2 508 221 €</span>
+          <span class="label">redistribués sur ce seul tirage</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="hasard">
+  <h2><span class="num">03</span>Le verdict du khi-deux</h2>
+  <p class="sub">Si une boule sortait vraiment plus souvent qu'une autre, un test
+  d'adéquation à la loi uniforme le détecterait. Voici ce test, sur les
+  2 797 tirages de l'ère actuelle.</p>
+  <div class="card">
+    <svg class="chart" viewBox="0 0 846 220" preserveAspectRatio="xMidYMid meet" role="img"><line class="chart-ref" x1="8" x2="838" y1="48.5" y2="48.5"/><text class="chart-ref-label" x="838" y="44.5" text-anchor="end">attendu : 285,4</text><rect class="bar" x="8" y="47.7" width="14" height="146.3" rx="2"><title>1 : 287 sorties</title></rect><text class="chart-axis" x="15.0" y="212" text-anchor="middle">1</text><rect class="bar" x="25" y="54.3" width="14" height="139.7" rx="2"><title>2 : 274 sorties</title></rect><rect class="bar" x="42" y="40.6" width="14" height="153.4" rx="2"><title>3 : 301 sorties</title></rect><rect class="bar" x="59" y="47.7" width="14" height="146.3" rx="2"><title>4 : 287 sorties</title></rect><rect class="bar" x="76" y="46.7" width="14" height="147.3" rx="2"><title>5 : 289 sorties</title></rect><rect class="bar" x="93" y="44.7" width="14" height="149.3" rx="2"><title>6 : 293 sorties</title></rect><text class="chart-axis" x="100.0" y="212" text-anchor="middle">6</text><rect class="bar" x="110" y="45.7" width="14" height="148.3" rx="2"><title>7 : 291 sorties</title></rect><rect class="bar bar-strong" x="127" y="58.9" width="14" height="135.1" rx="2"><title>8 : 265 sorties</title></rect><text class="chart-axis" x="134.0" y="212" text-anchor="middle">8</text><rect class="bar" x="144" y="46.7" width="14" height="147.3" rx="2"><title>9 : 289 sorties</title></rect><rect class="bar" x="161" y="49.2" width="14" height="144.8" rx="2"><title>10 : 284 sorties</title></rect><rect class="bar" x="178" y="56.4" width="14" height="137.6" rx="2"><title>11 : 270 sorties</title></rect><text class="chart-axis" x="185.0" y="212" text-anchor="middle">11</text><rect class="bar" x="195" y="52.3" width="14" height="141.7" rx="2"><title>12 : 278 sorties</title></rect><rect class="bar bar-strong" x="212" y="29.9" width="14" height="164.1" rx="2"><title>13 : 322 sorties</title></rect><text class="chart-axis" x="219.0" y="212" text-anchor="middle">13</text><rect class="bar" x="229" y="58.9" width="14" height="135.1" rx="2"><title>14 : 265 sorties</title></rect><rect class="bar" x="246" y="35.0" width="14" height="159.0" rx="2"><title>15 : 312 sorties</title></rect><rect class="bar" x="263" y="41.6" width="14" height="152.4" rx="2"><title>16 : 299 sorties</title></rect><text class="chart-axis" x="270.0" y="212" text-anchor="middle">16</text><rect class="bar" x="280" y="49.8" width="14" height="144.2" rx="2"><title>17 : 283 sorties</title></rect><rect class="bar" x="297" y="54.9" width="14" height="139.1" rx="2"><title>18 : 273 sorties</title></rect><rect class="bar bar-strong" x="314" y="60.0" width="14" height="134.0" rx="2"><title>19 : 263 sorties</title></rect><text class="chart-axis" x="321.0" y="212" text-anchor="middle">19</text><rect class="bar" x="331" y="53.3" width="14" height="140.7" rx="2"><title>20 : 276 sorties</title></rect><rect class="bar" x="348" y="54.3" width="14" height="139.7" rx="2"><title>21 : 274 sorties</title></rect><text class="chart-axis" x="355.0" y="212" text-anchor="middle">21</text><rect class="bar bar-strong" x="365" y="33.4" width="14" height="160.6" rx="2"><title>22 : 315 sorties</title></rect><text class="chart-axis" x="372.0" y="212" text-anchor="middle">22</text><rect class="bar" x="382" y="47.2" width="14" height="146.8" rx="2"><title>23 : 288 sorties</title></rect><rect class="bar" x="399" y="44.7" width="14" height="149.3" rx="2"><title>24 : 293 sorties</title></rect><rect class="bar" x="416" y="54.9" width="14" height="139.1" rx="2"><title>25 : 273 sorties</title></rect><rect class="bar" x="433" y="44.2" width="14" height="149.8" rx="2"><title>26 : 294 sorties</title></rect><text class="chart-axis" x="440.0" y="212" text-anchor="middle">26</text><rect class="bar" x="450" y="47.7" width="14" height="146.3" rx="2"><title>27 : 287 sorties</title></rect><rect class="bar" x="467" y="46.7" width="14" height="147.3" rx="2"><title>28 : 289 sorties</title></rect><rect class="bar" x="484" y="42.1" width="14" height="151.9" rx="2"><title>29 : 298 sorties</title></rect><rect class="bar" x="501" y="45.7" width="14" height="148.3" rx="2"><title>30 : 291 sorties</title></rect><rect class="bar" x="518" y="38.5" width="14" height="155.5" rx="2"><title>31 : 305 sorties</title></rect><text class="chart-axis" x="525.0" y="212" text-anchor="middle">31</text><rect class="bar" x="535" y="52.3" width="14" height="141.7" rx="2"><title>32 : 278 sorties</title></rect><rect class="bar" x="552" y="51.8" width="14" height="142.2" rx="2"><title>33 : 279 sorties</title></rect><rect class="bar" x="569" y="51.8" width="14" height="142.2" rx="2"><title>34 : 279 sorties</title></rect><rect class="bar" x="586" y="46.7" width="14" height="147.3" rx="2"><title>35 : 289 sorties</title></rect><rect class="bar" x="603" y="45.2" width="14" height="148.8" rx="2"><title>36 : 292 sorties</title></rect><text class="chart-axis" x="610.0" y="212" text-anchor="middle">36</text><rect class="bar" x="620" y="50.8" width="14" height="143.2" rx="2"><title>37 : 281 sorties</title></rect><rect class="bar" x="637" y="39.6" width="14" height="154.4" rx="2"><title>38 : 303 sorties</title></rect><rect class="bar bar-strong" x="654" y="64.0" width="14" height="130.0" rx="2"><title>39 : 255 sorties</title></rect><text class="chart-axis" x="661.0" y="212" text-anchor="middle">39</text><rect class="bar" x="671" y="49.8" width="14" height="144.2" rx="2"><title>40 : 283 sorties</title></rect><rect class="bar bar-strong" x="688" y="27.3" width="14" height="166.7" rx="2"><title>41 : 327 sorties</title></rect><text class="chart-axis" x="695.0" y="212" text-anchor="middle">41</text><rect class="bar" x="705" y="56.9" width="14" height="137.1" rx="2"><title>42 : 269 sorties</title></rect><rect class="bar" x="722" y="55.4" width="14" height="138.6" rx="2"><title>43 : 272 sorties</title></rect><rect class="bar" x="739" y="52.3" width="14" height="141.7" rx="2"><title>44 : 278 sorties</title></rect><rect class="bar" x="756" y="50.3" width="14" height="143.7" rx="2"><title>45 : 282 sorties</title></rect><rect class="bar" x="773" y="52.3" width="14" height="141.7" rx="2"><title>46 : 278 sorties</title></rect><text class="chart-axis" x="780.0" y="212" text-anchor="middle">46</text><rect class="bar" x="790" y="52.8" width="14" height="141.2" rx="2"><title>47 : 277 sorties</title></rect><rect class="bar" x="807" y="57.9" width="14" height="136.1" rx="2"><title>48 : 267 sorties</title></rect><rect class="bar" x="824" y="47.2" width="14" height="146.8" rx="2"><title>49 : 288 sorties</title></rect></svg>
+    <p class="pred-why">Nombre de sorties par numéro. En pointillé, l'effectif attendu
+    si le tirage est parfaitement uniforme. Les écarts que l'œil croit voir sont
+    du bruit : c'est précisément ce que le test mesure.</p>
+    <div class="grid grid-3" style="margin-top:18px">
+      <div class="stat"><span class="value mono">37,3</span>
+        <span class="label">X² observé sur les 49 boules (48 degrés de liberté)</span></div>
+      <div class="stat"><span class="value mono">86,7 %</span>
+        <span class="label">probabilité d'observer un tel écart si tout est uniforme</span></div>
+      <div class="stat"><span class="value mono">45,8 %</span>
+        <span class="label">même test sur les 10 numéros chance</span></div>
+    </div>
+    <p class="verdict">Boules : <strong>compatible avec un tirage parfaitement uniforme</strong>.
+    Autrement dit, le numéro le plus « chaud » de l'histoire n'a rien de chaud.</p>
+  </div>
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="card">
+      <h3 style="margin-top:0;font-size:1rem">Ce qui ressemble à un signal</h3>
+      <p class="pred-why">Les plus sortis : 41 (327), 13 (322), 22 (315).
+      Les moins sortis : 39 (255), 19 (263), 8 (265).
+      L'écart entre les deux extrêmes est du même ordre que celui qu'on obtient en
+      lançant une pièce équilibrée assez longtemps.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;font-size:1rem">La forme d'un tirage typique</h3>
+      <p class="pred-why">Somme moyenne des cinq numéros : <strong>124,6</strong>
+      (80 % des tirages entre 86 et 164).
+      En moyenne 2,57 numéros impairs, 2,55 numéros
+      inférieurs à 25, et 0,42 paire de numéros qui se suivent.
+      Un tirage partage en moyenne <strong>0,52</strong> numéro avec le
+      précédent — la théorie prédit 0,51.</p>
+      <svg class="chart" viewBox="0 0 474 140" preserveAspectRatio="xMidYMid meet" role="img"><rect class="bar" x="8" y="113.0" width="18" height="1.0" rx="2"><title>20 : 1</title></rect><text class="chart-axis" x="17.0" y="132" text-anchor="middle">20</text><rect class="bar" x="30" y="113.0" width="18" height="1.0" rx="2"><title>30 : 3</title></rect><rect class="bar" x="52" y="111.4" width="18" height="2.6" rx="2"><title>40 : 10</title></rect><text class="chart-axis" x="61.0" y="132" text-anchor="middle">40</text><rect class="bar" x="74" y="106.3" width="18" height="7.7" rx="2"><title>50 : 30</title></rect><rect class="bar" x="96" y="100.4" width="18" height="13.6" rx="2"><title>60 : 53</title></rect><text class="chart-axis" x="105.0" y="132" text-anchor="middle">60</text><rect class="bar" x="118" y="87.9" width="18" height="26.1" rx="2"><title>70 : 102</title></rect><rect class="bar" x="140" y="76.1" width="18" height="37.9" rx="2"><title>80 : 148</title></rect><text class="chart-axis" x="149.0" y="132" text-anchor="middle">80</text><rect class="bar" x="162" y="54.7" width="18" height="59.3" rx="2"><title>90 : 232</title></rect><rect class="bar" x="184" y="39.1" width="18" height="74.9" rx="2"><title>100 : 293</title></rect><text class="chart-axis" x="193.0" y="132" text-anchor="middle">100</text><rect class="bar" x="206" y="26.0" width="18" height="88.0" rx="2"><title>110 : 344</title></rect><rect class="bar" x="228" y="21.4" width="18" height="92.6" rx="2"><title>120 : 362</title></rect><text class="chart-axis" x="237.0" y="132" text-anchor="middle">120</text><rect class="bar" x="250" y="27.8" width="18" height="86.2" rx="2"><title>130 : 337</title></rect><rect class="bar" x="272" y="38.8" width="18" height="75.2" rx="2"><title>140 : 294</title></rect><text class="chart-axis" x="281.0" y="132" text-anchor="middle">140</text><rect class="bar" x="294" y="57.2" width="18" height="56.8" rx="2"><title>150 : 222</title></rect><rect class="bar" x="316" y="72.8" width="18" height="41.2" rx="2"><title>160 : 161</title></rect><text class="chart-axis" x="325.0" y="132" text-anchor="middle">160</text><rect class="bar" x="338" y="85.9" width="18" height="28.1" rx="2"><title>170 : 110</title></rect><rect class="bar" x="360" y="99.7" width="18" height="14.3" rx="2"><title>180 : 56</title></rect><text class="chart-axis" x="369.0" y="132" text-anchor="middle">180</text><rect class="bar" x="382" y="108.1" width="18" height="5.9" rx="2"><title>190 : 23</title></rect><rect class="bar" x="404" y="110.7" width="18" height="3.3" rx="2"><title>200 : 13</title></rect><text class="chart-axis" x="413.0" y="132" text-anchor="middle">200</text><rect class="bar" x="426" y="113.0" width="18" height="1.0" rx="2"><title>210 : 2</title></rect><rect class="bar" x="448" y="113.0" width="18" height="1.0" rx="2"><title>220 : 1</title></rect><text class="chart-axis" x="457.0" y="132" text-anchor="middle">220</text></svg>
+    </div>
+  </div>
+</section>
+
+<section id="retards">
+  <h2><span class="num">04</span>Les retardataires</h2>
+  <p class="sub">Les numéros qu'on n'a pas vus depuis longtemps. Ils ne sont pas
+  « dus » : la boule 17 ne sait pas qu'elle est absente depuis trente tirages.</p>
+  <div class="grid grid-2">
+    <div class="card scroll-x">
+      <table>
+        <thead><tr><th class="num">N°</th><th class="num">Retard</th><th class="num">Retard moyen</th>
+        <th class="num">Record</th><th class="num">Dernière sortie</th></tr></thead>
+        <tbody><tr><td class="num">17</td><td class="num">33</td><td class="num">9,7</td><td class="num">57</td><td class="num">2026-06-03</td></tr><tr><td class="num">43</td><td class="num">31</td><td class="num">10,2</td><td class="num">45</td><td class="num">2026-06-08</td></tr><tr><td class="num">2</td><td class="num">30</td><td class="num">10,1</td><td class="num">54</td><td class="num">2026-06-10</td></tr><tr><td class="num">39</td><td class="num">27</td><td class="num">10,9</td><td class="num">64</td><td class="num">2026-06-17</td></tr><tr><td class="num">32</td><td class="num">22</td><td class="num">10,0</td><td class="num">65</td><td class="num">2026-06-29</td></tr><tr><td class="num">49</td><td class="num">20</td><td class="num">9,7</td><td class="num">57</td><td class="num">2026-07-04</td></tr><tr><td class="num">46</td><td class="num">19</td><td class="num">10,0</td><td class="num">43</td><td class="num">2026-07-06</td></tr><tr><td class="num">3</td><td class="num">17</td><td class="num">9,1</td><td class="num">49</td><td class="num">2026-07-11</td></tr><tr><td class="num">1</td><td class="num">15</td><td class="num">9,7</td><td class="num">43</td><td class="num">2026-07-15</td></tr><tr><td class="num">11</td><td class="num">14</td><td class="num">10,3</td><td class="num">66</td><td class="num">2026-07-18</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;font-size:1rem">Numéros chance</h3>
+      <svg class="chart" viewBox="0 0 348 190" preserveAspectRatio="xMidYMid meet" role="img"><line class="chart-ref" x1="8" x2="340" y1="38.3" y2="38.3"/><text class="chart-ref-label" x="340" y="34.3" text-anchor="end">attendu : 279,7</text><rect class="bar" x="8" y="32.8" width="26" height="131.2" rx="2"><title>1 : 292 sorties</title></rect><text class="chart-axis" x="21.0" y="182" text-anchor="middle">1</text><rect class="bar" x="42" y="40.4" width="26" height="123.6" rx="2"><title>2 : 275 sorties</title></rect><text class="chart-axis" x="55.0" y="182" text-anchor="middle">2</text><rect class="bar" x="76" y="39.5" width="26" height="124.5" rx="2"><title>3 : 277 sorties</title></rect><text class="chart-axis" x="89.0" y="182" text-anchor="middle">3</text><rect class="bar" x="110" y="37.7" width="26" height="126.3" rx="2"><title>4 : 281 sorties</title></rect><text class="chart-axis" x="123.0" y="182" text-anchor="middle">4</text><rect class="bar" x="144" y="32.3" width="26" height="131.7" rx="2"><title>5 : 293 sorties</title></rect><text class="chart-axis" x="157.0" y="182" text-anchor="middle">5</text><rect class="bar" x="178" y="49.8" width="26" height="114.2" rx="2"><title>6 : 254 sorties</title></rect><text class="chart-axis" x="191.0" y="182" text-anchor="middle">6</text><rect class="bar" x="212" y="25.1" width="26" height="138.9" rx="2"><title>7 : 309 sorties</title></rect><text class="chart-axis" x="225.0" y="182" text-anchor="middle">7</text><rect class="bar" x="246" y="48.5" width="26" height="115.5" rx="2"><title>8 : 257 sorties</title></rect><text class="chart-axis" x="259.0" y="182" text-anchor="middle">8</text><rect class="bar" x="280" y="35.9" width="26" height="128.1" rx="2"><title>9 : 285 sorties</title></rect><text class="chart-axis" x="293.0" y="182" text-anchor="middle">9</text><rect class="bar" x="314" y="40.8" width="26" height="123.2" rx="2"><title>10 : 274 sorties</title></rect><text class="chart-axis" x="327.0" y="182" text-anchor="middle">10</text></svg>
+      <p class="pred-why">Dix numéros seulement, donc des effectifs plus gros et des
+      écarts relatifs plus petits. Là encore, rien qui sorte du bruit.</p>
+    </div>
+  </div>
+</section>
+
+<section id="backtest">
+  <h2><span class="num">05</span>Le backtest qui démolit tout</h2>
+  <p class="sub">On rejoue les 400 derniers tirages
+  (2024-01-31 → 2026-08-19). Pour chacun, chaque
+  stratégie ne voit que le passé, produit 3 grilles, et on compte
+  ce qu'elle aurait réellement gagné aux rapports officiels du jour.</p>
+  <div class="card">
+    <div class="scroll-x"><table>
+      <thead><tr><th>Stratégie</th><th class="num">Bons numéros / grille</th>
+      <th class="num">Grilles gagnantes</th><th class="num">Mise</th>
+      <th class="num">Gains</th><th class="num">Retour</th><th class="num">vs hasard</th></tr></thead>
+      <tbody><tr><td>Hasard pur</td><td class="num">0,5300</td><td class="num">14,8 %</td><td class="num">2 640 €</td><td class="num">727 €</td><td class="num neg">-72,5 %</td><td class="num">témoin</td></tr><tr><td>Numéros chauds</td><td class="num">0,5058</td><td class="num">17,3 %</td><td class="num">2 640 €</td><td class="num">775 €</td><td class="num neg">-70,7 %</td><td class="num">p = 0,36</td></tr><tr><td>Numéros froids</td><td class="num">0,5267</td><td class="num">17,6 %</td><td class="num">2 640 €</td><td class="num">852 €</td><td class="num neg">-67,7 %</td><td class="num">p = 0,90</td></tr><tr><td>Retardataires</td><td class="num">0,5083</td><td class="num">17,3 %</td><td class="num">2 640 €</td><td class="num">1 093 €</td><td class="num neg">-58,6 %</td><td class="num">p = 0,41</td></tr><tr><td>Compagnons de route</td><td class="num">0,5067</td><td class="num">16,2 %</td><td class="num">2 640 €</td><td class="num">745 €</td><td class="num neg">-71,8 %</td><td class="num">p = 0,37</td></tr><tr><td>Momentum</td><td class="num">0,4975</td><td class="num">15,6 %</td><td class="num">2 640 €</td><td class="num">769 €</td><td class="num neg">-70,9 %</td><td class="num">p = 0,22</td></tr><tr><td>Alex Machina</td><td class="num">0,4925</td><td class="num">16,2 %</td><td class="num">2 640 €</td><td class="num">684 €</td><td class="num neg">-74,1 %</td><td class="num">p = 0,15</td></tr></tbody>
+    </table></div>
+    <p class="verdict">Aucune stratégie ne se distingue statistiquement du hasard pur. L'espérance théorique est de 0,5102 bon
+    numéro par grille, quelle que soit la méthode employée pour la remplir.</p>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3 style="margin-top:0;font-size:1rem">Retour sur mise, par stratégie</h3>
+    <svg class="chart" viewBox="0 0 546 198" preserveAspectRatio="xMidYMid meet" role="img"><line class="chart-ref" x1="472" x2="472" y1="8" y2="190"/><text class="chart-label" x="122" y="25.0" text-anchor="end">Hasard pur</text><rect class="bar bar-negative" x="139.5" y="13.0" width="332.5" height="14" rx="2"/><text class="chart-value" x="536" y="25.0" text-anchor="end">-72,5 %</text><text class="chart-label" x="122" y="51.0" text-anchor="end">Numéros chauds</text><rect class="bar bar-negative" x="147.8" y="39.0" width="324.2" height="14" rx="2"/><text class="chart-value" x="536" y="51.0" text-anchor="end">-70,7 %</text><text class="chart-label" x="122" y="77.0" text-anchor="end">Numéros froids</text><rect class="bar bar-negative" x="161.2" y="65.0" width="310.8" height="14" rx="2"/><text class="chart-value" x="536" y="77.0" text-anchor="end">-67,7 %</text><text class="chart-label" x="122" y="103.0" text-anchor="end">Retardataires</text><rect class="bar bar-negative" x="203.2" y="91.0" width="268.8" height="14" rx="2"/><text class="chart-value" x="536" y="103.0" text-anchor="end">-58,6 %</text><text class="chart-label" x="122" y="129.0" text-anchor="end">Compagnons de route</text><rect class="bar bar-negative" x="142.6" y="117.0" width="329.4" height="14" rx="2"/><text class="chart-value" x="536" y="129.0" text-anchor="end">-71,8 %</text><text class="chart-label" x="122" y="155.0" text-anchor="end">Momentum</text><rect class="bar bar-negative" x="146.8" y="143.0" width="325.2" height="14" rx="2"/><text class="chart-value" x="536" y="155.0" text-anchor="end">-70,9 %</text><text class="chart-label" x="122" y="181.0" text-anchor="end">Alex Machina</text><rect class="bar bar-negative" x="132.0" y="169.0" width="340.0" height="14" rx="2"/><text class="chart-value" x="536" y="181.0" text-anchor="end">-74,1 %</text></svg>
+    <p class="pred-why">Toutes négatives, toutes du même ordre. L'ordre du classement
+    change à chaque nouveau tirage : c'est la signature du bruit, pas du talent.</p>
+  </div>
+</section>
+
+<section id="foule">
+  <h2><span class="num">06</span>Le seul avantage qui existe vraiment</h2>
+  <p class="sub">On ne peut pas gagner plus souvent. On peut en revanche gagner
+  plus <em>quand</em> on gagne, parce que les rangs du Loto sont à répartition et
+  que les joueurs, eux, ne tirent pas au hasard : ils jouent des dates de naissance.</p>
+  <div class="card">
+    <h3 style="margin-top:0;font-size:1rem">La preuve, dans les données de la FDJ</h3>
+    <p class="pred-why">Régression du nombre de gagnants au rang « 3 numéros »
+    sur la composition de la combinaison tirée, en neutralisant le volume de grilles
+    vendues. 1 480 tirages, 2017-03-06 → 2026-08-19, R² = 0,657.</p>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Variable</th><th class="num">Coefficient</th><th class="num">t</th>
+      <th class="num">Effet par unité</th><th>Significatif</th></tr></thead>
+      <tbody><tr><td>log(volume de grilles jouées)</td><td class="num">0,6160</td><td class="num">36,3</td><td class="num">+85,2 %</td><td>oui</td></tr><tr><td>numéros ≤ 31 (biais date de naissance)</td><td class="num">0,1479</td><td class="num">13,9</td><td class="num">+15,9 %</td><td>oui</td></tr><tr><td>numéros ≤ 12 (biais mois de naissance)</td><td class="num">0,0502</td><td class="num">5,0</td><td class="num">+5,2 %</td><td>oui</td></tr><tr><td>paires de numéros consécutifs</td><td class="num">-0,0375</td><td class="num">-4,4</td><td class="num">-3,7 %</td><td>oui</td></tr><tr><td>somme de la combinaison (centrée)</td><td class="num">-0,0241</td><td class="num">-2,0</td><td class="num">-2,4 %</td><td>non</td></tr></tbody>
+    </table></div>
+    <p class="verdict">Chaque numéro tiré inférieur ou égal à 31 augmente de
+    <strong>15,9 %</strong> le nombre de gagnants à ce rang
+    (t = 13,9). Le biais des dates de naissance n'est pas une légende :
+    il est massif, et il est mesurable.</p>
+  </div>
+  <h3 style="margin:26px 0 4px;font-size:1.05rem">Grilles à contre-courant</h3>
+  <p class="sub">Mêmes chances de sortir que n'importe quelle autre combinaison,
+  mais choisies pour être partagées avec le moins de monde possible.</p>
+  <div class="grid grid-3"><article class="card"><div class="balls"><span class="ball">22</span><span class="ball">32</span><span class="ball">35</span><span class="ball">37</span><span class="ball">38</span><span class="plus">+</span><span class="ball ball-chance">9</span></div><div class="stat"><span class="value mono pos">+55,5 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article><article class="card"><div class="balls"><span class="ball">14</span><span class="ball">32</span><span class="ball">33</span><span class="ball">38</span><span class="ball">47</span><span class="plus">+</span><span class="ball ball-chance">8</span></div><div class="stat"><span class="value mono pos">+55,5 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article><article class="card"><div class="balls"><span class="ball">15</span><span class="ball">33</span><span class="ball">34</span><span class="ball">36</span><span class="ball">46</span><span class="plus">+</span><span class="ball ball-chance">3</span></div><div class="stat"><span class="value mono pos">+55,5 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article><article class="card"><div class="balls"><span class="ball">14</span><span class="ball">33</span><span class="ball">35</span><span class="ball">36</span><span class="ball">45</span><span class="plus">+</span><span class="ball ball-chance">3</span></div><div class="stat"><span class="value mono pos">+55,3 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article><article class="card"><div class="balls"><span class="ball">17</span><span class="ball">32</span><span class="ball">33</span><span class="ball">39</span><span class="ball">41</span><span class="plus">+</span><span class="ball ball-chance">7</span></div><div class="stat"><span class="value mono pos">+55,2 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article><article class="card"><div class="balls"><span class="ball">14</span><span class="ball">32</span><span class="ball">35</span><span class="ball">39</span><span class="ball">40</span><span class="plus">+</span><span class="ball ball-chance">3</span></div><div class="stat"><span class="value mono pos">+54,9 %</span><span class="label">de gain estimé en cas de succès, à probabilité identique</span></div></article></div>
+</section>
+
+<section id="economie">
+  <h2><span class="num">07</span>Ce que coûte vraiment une grille</h2>
+  <p class="sub">Espérance de gain calculée non pas sur des règles théoriques mais
+  sur les rapports réellement versés par la FDJ, tirage par tirage
+  (2008-10-06 → 2026-08-19, 2 797 tirages).</p>
+  <div class="card">
+    <div class="scroll-x"><table>
+      <thead><tr><th>Rang</th><th class="num">Probabilité</th>
+      <th class="num">Rapport moyen</th><th class="num">Apport à l'espérance</th></tr></thead>
+      <tbody><tr><td>5 numéros + n° chance</td><td class="num">1 sur 19 068 840</td><td class="num">6 604 036,68 €</td><td class="num">0,3463 €</td></tr><tr><td>5 numéros</td><td class="num">1 sur 2 118 760</td><td class="num">135 465,85 €</td><td class="num">0,0639 €</td></tr><tr><td>4 numéros + n° chance</td><td class="num">1 sur 86 677</td><td class="num">1 685,35 €</td><td class="num">0,0194 €</td></tr><tr><td>4 numéros</td><td class="num">1 sur 9 631</td><td class="num">250,04 €</td><td class="num">0,0260 €</td></tr><tr><td>3 numéros + n° chance</td><td class="num">1 sur 2 016</td><td class="num">30,59 €</td><td class="num">0,0152 €</td></tr><tr><td>3 numéros</td><td class="num">1 sur 224</td><td class="num">11,88 €</td><td class="num">0,0530 €</td></tr><tr><td>2 numéros + n° chance</td><td class="num">1 sur 144</td><td class="num">10,36 €</td><td class="num">0,0720 €</td></tr><tr><td>2 numéros</td><td class="num">1 sur 16</td><td class="num">4,58 €</td><td class="num">0,2864 €</td></tr><tr><td>n° chance seul</td><td class="num">1 sur 11</td><td class="num">2,20 €</td><td class="num">0,2036 €</td></tr></tbody>
+    </table></div>
+    <div class="grid grid-3" style="margin-top:20px">
+      <div class="stat"><span class="value mono">1,09 €</span>
+        <span class="label">espérance de gain pour 2,20 € misés</span></div>
+      <div class="stat"><span class="value mono neg">−1,11 €</span>
+        <span class="label">perte moyenne par grille jouée</span></div>
+      <div class="stat"><span class="value mono">50,6 %</span>
+        <span class="label">part de la mise qui ne revient jamais aux joueurs</span></div>
+    </div>
+    <p class="verdict">Une chance sur 19 068 840 de décrocher le rang 1.
+    À trois grilles par semaine, il faudrait en moyenne
+    <strong>122 236 ans</strong> pour l'atteindre,
+    et il faudrait jouer 13 217 512 grilles pour
+    avoir une chance sur deux d'y arriver au moins une fois.</p>
+  </div>
+</section>
+<footer>
+  <p>Mis à jour automatiquement le 21/08/2026 à 10:49 UTC, après chaque tirage, à partir des
+  archives officielles de la Française des Jeux.
+  Code source et méthode : <a href="https://github.com/KlayaR/alex-machina">github.com/KlayaR/alex-machina</a>.
+  Données brutes : <a href="data/latest.json">latest.json</a>.</p>
+  <p>Le jeu comporte des risques : endettement, isolement, dépendance.
+  Interdit aux mineurs. Pour en parler : <strong>09 74 75 13 13</strong> (appel non surtaxé)
+  ou <a href="https://www.joueurs-info-service.fr">joueurs-info-service.fr</a>.</p>
+</footer>
+</div>
+</body>
+</html>

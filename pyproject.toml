@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alex-machina"
+version = "0.1.0"
+description = "Analyse l'historique du Loto français, prédit le prochain tirage, et démontre que sa propre prédiction ne vaut rien."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["loto", "fdj", "statistiques", "probabilites", "hasard"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Natural Language :: French",
+]
+# Aucune dépendance : bibliothèque standard uniquement. C'est volontaire —
+# le job de mise à jour tourne en quelques secondes sans rien installer.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[project.urls]
+Tableau-de-bord = "https://klayar.github.io/alex-machina/"
+Code = "https://github.com/KlayaR/alex-machina"
+
+[project.scripts]
+alex-machina = "alex_machina.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
