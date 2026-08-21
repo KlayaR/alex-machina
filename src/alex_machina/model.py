@@ -15,6 +15,32 @@ CHANCE_MAX = 10
 ERA_MODERN = "5/49"
 #: Ère historique : 6 boules sur 49 + 1 complémentaire (19/05/1976 → 04/10/2008).
 ERA_LEGACY = "6/49"
+ERAS = (ERA_MODERN, ERA_LEGACY)
+
+#: Nombre de boules tirées selon l'ère. Mélanger les deux dans une même
+#: statistique produit des chiffres qui ne veulent rien dire : toutes les
+#: analyses portent sur une seule ère à la fois.
+BALLS_BY_ERA = {ERA_MODERN: 5, ERA_LEGACY: 6}
+
+#: Tirage du calendrier régulier (lundi, mercredi, samedi).
+KIND_REGULAR = "regulier"
+#: Super Loto, Grand Loto, Loto de Noël : tirages en supplément du calendrier,
+#: avec leurs propres cagnottes et leurs propres volumes de jeu.
+KIND_SPECIAL = "exceptionnel"
+
+
+def balls_drawn(era: str) -> int:
+    return BALLS_BY_ERA.get(era, BALLS_DRAWN)
+
+
+def expected_repeat(era: str) -> float:
+    """Nombre moyen de boules reportées d'un tirage au suivant, en théorie.
+
+    Pour k boules tirées parmi n, l'espérance vaut k²/n : 0,51 en 5/49 et 0,73
+    en 6/49. C'est la valeur de référence à laquelle comparer l'observation.
+    """
+    k = balls_drawn(era)
+    return k * k / BALL_MAX
 
 #: Prix d'une grille simple, en euros.
 GRID_PRICE = 2.20
@@ -45,15 +71,34 @@ MONTH_NAMES = (
 
 
 def next_draw_date(after: date) -> date:
-    """Prochain jour de tirage strictement postérieur à ``after``.
+    """Prochain tirage régulier strictement postérieur à ``after``.
 
-    Ne tient pas compte des tirages exceptionnels (Grand Loto, vendredi 13),
-    qui s'ajoutent au calendrier régulier sans jamais le remplacer.
+    Les tirages exceptionnels (Super Loto, Grand Loto, Loto de Noël) s'ajoutent
+    au calendrier sans jamais le remplacer : sur les 71 tirages exceptionnels
+    de l'ère actuelle, aucun n'est tombé un lundi, un mercredi ou un samedi.
+    Cette fonction reste donc exacte, mais un tirage exceptionnel peut
+    s'intercaler avant la date qu'elle renvoie — voir :func:`next_friday_13`.
     """
     day = after + timedelta(days=1)
     while day.weekday() not in DRAW_WEEKDAYS:
         day += timedelta(days=1)
     return day
+
+
+def next_friday_13(after: date, *, horizon_days: int = 400) -> date | None:
+    """Prochain vendredi 13 après ``after``, ou ``None`` au-delà de l'horizon.
+
+    Ce n'est pas une règle officielle mais une régularité solide : depuis
+    juillet 2019, les treize vendredis 13 ont tous donné lieu à un Super Loto.
+    Les autres tirages exceptionnels (Halloween, Noël, Saint-Valentin) ne sont
+    annoncés qu'au coup par coup et restent, eux, imprévisibles.
+    """
+    day = after + timedelta(days=1)
+    for _ in range(horizon_days):
+        if day.day == 13 and day.weekday() == 4:
+            return day
+        day += timedelta(days=1)
+    return None
 
 
 def format_date(value: date) -> str:
@@ -88,6 +133,8 @@ class Draw:
     balls: tuple[int, ...]
     chance: int | None = None
     complementaire: int | None = None
+    #: ``KIND_REGULAR`` ou ``KIND_SPECIAL``.
+    kind: str = KIND_REGULAR
     fdj_id: str = ""
     source: str = ""
     #: rang → (nombre de gagnants, rapport en euros)
@@ -96,6 +143,10 @@ class Draw:
     @property
     def is_modern(self) -> bool:
         return self.era == ERA_MODERN
+
+    @property
+    def is_regular(self) -> bool:
+        return self.kind == KIND_REGULAR
 
     @property
     def combination(self) -> str:

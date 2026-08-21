@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
+from .model import KIND_REGULAR, KIND_SPECIAL
+
 API_BASE = "https://www.sto.api.fdj.fr/anonymous/service-draw-info/v3/documentations"
 API_PREFIX = "1a2b3c4d-9876-4562-b3fc-2c963f66"
 CDN_BASE = "https://media.fdj.fr/static-draws/csv/loto"
@@ -39,6 +41,10 @@ class Archive:
     era: str
     period: str
     live: bool = False
+    #: ``KIND_REGULAR`` pour le calendrier ordinaire, ``KIND_SPECIAL`` pour les
+    #: Super Loto, Grand Loto et Loto de Noël.
+    kind: str = KIND_REGULAR
+    label: str = ""
 
     @property
     def api_url(self) -> str:
@@ -49,7 +55,7 @@ class Archive:
         return f"{CDN_BASE}/{self.name}.zip"
 
 
-#: Les cinq archives couvrant l'intégralité de l'histoire du Loto français.
+#: Les cinq archives couvrant l'intégralité du calendrier régulier du Loto.
 #: ``live=True`` marque celle qui reçoit les nouveaux tirages.
 ARCHIVES: tuple[Archive, ...] = (
     Archive("loto", "afl6", "6/49", "1976-05-19 → 2008-10-04"),
@@ -59,7 +65,29 @@ ARCHIVES: tuple[Archive, ...] = (
     Archive("loto_201911", "afp6", "5/49", "2019-11-06 → aujourd'hui", live=True),
 )
 
+#: Les tirages exceptionnels, publiés à part par la FDJ : Super Loto (souvent
+#: un vendredi 13), Grand Loto, Loto de Noël. Ils s'ajoutent au calendrier
+#: régulier — aucun des 71 tirages modernes n'est tombé un jour ordinaire.
+SPECIAL_ARCHIVES: tuple[Archive, ...] = (
+    Archive("sloto", "afh6", "6/49", "1996-05-15 → 2008-06-13",
+            kind=KIND_SPECIAL, label="Super Loto (ancienne formule)"),
+    Archive("nouveau_superloto", "afi6", "5/49", "2009-02-13 → 2017-01-13",
+            kind=KIND_SPECIAL, label="Super Loto"),
+    Archive("superloto2017", "afj6", "5/49", "2017-10-13 → 2018-09-14",
+            kind=KIND_SPECIAL, label="Super Loto"),
+    Archive("lotonoel2017", "aff6", "5/49", "2017-12-22 → 2018-12-25",
+            kind=KIND_SPECIAL, label="Loto de Noël"),
+    Archive("superloto_201907", "afk6", "5/49", "2019-07-14 → aujourd'hui",
+            kind=KIND_SPECIAL, label="Super Loto", live=True),
+    Archive("grandloto_201912", "afg6", "5/49", "2019-12-24 → aujourd'hui",
+            kind=KIND_SPECIAL, label="Grand Loto", live=True),
+)
+
+ALL_ARCHIVES: tuple[Archive, ...] = ARCHIVES + SPECIAL_ARCHIVES
+
 LIVE_ARCHIVE = ARCHIVES[-1]
+#: Toutes les archives susceptibles de recevoir un tirage récent.
+LIVE_ARCHIVES: tuple[Archive, ...] = tuple(a for a in ALL_ARCHIVES if a.live)
 
 
 class FetchError(RuntimeError):

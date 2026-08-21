@@ -15,8 +15,8 @@ from pathlib import Path
 
 from . import charts
 from .backtest import BacktestReport
-from .crowd import ContrarianGrid, CrowdModel
-from .model import GRID_PRICE, RANK_LABELS, Draw, format_date
+from .crowd import ChanceModel, ContrarianGrid, CrowdModel
+from .model import GRID_PRICE, RANK_LABELS, Draw, format_date, next_friday_13
 from .odds import Economics, grids_for_certainty, rank_probability, years_of_playing
 from .predictors import Prediction
 from .stats import ChiSquareResult, NumberStats, ShapeStats
@@ -31,6 +31,18 @@ DISCLAIMER = (
 
 def _fmt(value: float, digits: int = 0) -> str:
     return f"{value:,.{digits}f}".replace(",", " ").replace(".", ",")
+
+
+def _typography(html: str) -> str:
+    """Colle les guillemets français à ce qu'ils encadrent.
+
+    Sans espace insécable, un navigateur étroit renvoie joyeusement le guillemet
+    fermant à la ligne suivante, tout seul. La règle ne s'applique qu'aux
+    guillemets : les deux-points et les pourcentages apparaissent aussi dans les
+    URL et les attributs, où une substitution ferait des dégâts.
+    """
+    narrow = " "
+    return html.replace("« ", "«" + narrow).replace(" »", narrow + "»")
 
 
 def _balls_html(balls: Sequence[int], chance: int | None = None) -> str:
@@ -105,6 +117,7 @@ h2 .num { color: var(--muted); font-variant-numeric: tabular-nums; margin-right:
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(252px, 1fr)); }
+.grid-predictions { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
 .balls { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 10px; }
 .ball {
   display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
@@ -121,15 +134,17 @@ h2 .num { color: var(--muted); font-variant-numeric: tabular-nums; margin-right:
 .stat .value { font-size: 1.9rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .stat .label { font-size: .84rem; color: var(--muted); }
 .chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; overflow: visible; }
+.chart-fixed { width: auto; max-width: none; height: auto; }
 .bar { fill: var(--accent); opacity: .82; }
 .bar-strong { fill: var(--chance); opacity: 1; }
 .bar-positive { fill: var(--positive); }
 .bar-negative { fill: var(--negative); }
 .chart-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
-.chart-ref-label, .chart-axis, .chart-label, .chart-value {
-  fill: var(--muted); font-size: 10px; font-family: inherit;
+.chart-ref-label, .chart-axis {
+  fill: var(--muted); font-size: 13px; font-family: inherit;
 }
-.chart-value, .chart-label { fill: var(--text); font-size: 11px; }
+.chart-label, .chart-value { fill: var(--text); font-size: 12px; font-family: inherit; }
+.chart-label { fill: var(--muted); }
 .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .scroll-x { overflow-x: auto; }
@@ -149,10 +164,26 @@ footer a { color: var(--accent); }
 """
 
 
+def _special_notice(last: date, target: date) -> str:
+    """Encart signalant un Super Loto qui s'intercale avant le tirage régulier."""
+    friday = next_friday_13(last)
+    if not friday or friday >= target:
+        return ""
+    return (
+        '<div class="notice" style="margin:0 0 22px">'
+        f'<strong>Un Super Loto s\'intercale le {escape(format_date(friday))}.</strong> '
+        "Les tirages exceptionnels s'ajoutent au calendrier sans le remplacer, et "
+        "depuis 2019 les treize vendredis 13 en ont tous eu un. Les grilles "
+        "ci-dessous valent pour lui exactement autant que pour le tirage régulier : "
+        "mêmes 49 boules, même machine, mêmes probabilités.</div>"
+    )
+
+
 def _section_predictions(
     predictions: Sequence[Prediction],
     target: date,
     seed: str,
+    last_date: date,
 ) -> str:
     cards = []
     for prediction in predictions:
@@ -167,11 +198,15 @@ def _section_predictions(
     return f"""
 <section id="predictions">
   <h2><span class="num">01</span>Les grilles du prochain tirage</h2>
-  <p class="sub">Sept oracles, sept méthodes, sept grilles pour le tirage du
+  <p class="sub">Quatre méthodes, quatre grilles pour le tirage du
   <strong>{escape(format_date(target))}</strong>. Elles sont reproductibles :
   même historique, même graine <code>{escape(seed)}</code>, mêmes numéros. Et
-  toutes ont exactement la même probabilité de sortir — une sur 19 068 840.</p>
-  <div class="grid grid-3">{''.join(cards)}</div>
+  toutes ont exactement la même probabilité de sortir — une sur 19 068 840.
+  Chaque méthode choisit son numéro chance selon sa propre logique, la même que
+  pour les boules ; il n'y en a que dix, alors deux grilles peuvent parfaitement
+  tomber sur le même.</p>
+  {_special_notice(last_date, target)}
+  <div class="grid grid-predictions">{''.join(cards)}</div>
 </section>"""
 
 
@@ -314,7 +349,7 @@ def _section_backtest(report: BacktestReport) -> str:
         roi_class = "pos" if result.roi > 0 else "neg"
         significance = (
             "témoin" if result.key == "uniforme"
-            else f"p = {_fmt(result.p_value, 2)}"
+            else f"p = {_fmt(result.p_value_holm, 2)}"
         )
         rows.append(
             f"<tr><td>{escape(result.label)}</td>"
@@ -329,8 +364,8 @@ def _section_backtest(report: BacktestReport) -> str:
     verdict = (
         "Aucune stratégie ne se distingue statistiquement du hasard pur."
         if not report.any_significant
-        else "Une stratégie s'écarte du hasard sur cette période — avec sept tests "
-             "simultanés, c'est exactement ce que le hasard produit une fois sur trois."
+        else "Une stratégie s'écarte du hasard sur cette période, correction de "
+             "Holm comprise. Relancez sur une autre fenêtre : l'écart ne tiendra pas."
     )
     return f"""
 <section id="backtest">
@@ -338,7 +373,11 @@ def _section_backtest(report: BacktestReport) -> str:
   <p class="sub">On rejoue les {report.draws_tested} derniers tirages
   ({escape(report.first_date)} → {escape(report.last_date)}). Pour chacun, chaque
   stratégie ne voit que le passé, produit {report.repeats} grilles, et on compte
-  ce qu'elle aurait réellement gagné aux rapports officiels du jour.</p>
+  ce qu'elle aurait réellement gagné aux rapports officiels du jour. La
+  comparaison au hasard est <strong>appariée tirage par tirage</strong> — trois
+  grilles jouées sur la même cible ne sont pas trois observations indépendantes —
+  et les p-values sont corrigées par <strong>Holm-Bonferroni</strong>, parce que
+  trois comparaisons offrent trois occasions de crier au signal.</p>
   <div class="card">
     <div class="scroll-x"><table>
       <thead><tr><th>Stratégie</th><th class="num">Bons numéros / grille</th>
@@ -351,14 +390,18 @@ def _section_backtest(report: BacktestReport) -> str:
   </div>
   <div class="card" style="margin-top:16px">
     <h3 style="margin-top:0;font-size:1rem">Retour sur mise, par stratégie</h3>
-    {charts.diverging_bar_chart(roi_data)}
+    <div class="scroll-x">{charts.diverging_bar_chart(roi_data)}</div>
     <p class="pred-why">Toutes négatives, toutes du même ordre. L'ordre du classement
     change à chaque nouveau tirage : c'est la signature du bruit, pas du talent.</p>
   </div>
 </section>"""
 
 
-def _section_crowd(model: CrowdModel, grids: Sequence[ContrarianGrid]) -> str:
+def _section_crowd(
+    model: CrowdModel,
+    grids: Sequence[ContrarianGrid],
+    chance_model: ChanceModel | None,
+) -> str:
     rows = "".join(
         f"<tr><td>{escape(c.name)}</td>"
         f'<td class="num">{_fmt(c.value, 4)}</td>'
@@ -370,23 +413,33 @@ def _section_crowd(model: CrowdModel, grids: Sequence[ContrarianGrid]) -> str:
     cards = "".join(
         '<article class="card">'
         f'{_balls_html(grid.balls, grid.chance)}'
-        f'<div class="stat"><span class="value mono pos">+{_fmt(grid.gain_percent, 1)} %</span>'
-        '<span class="label">de gain estimé en cas de succès, à probabilité identique</span></div>'
+        f'<div class="stat"><span class="value mono pos">+{_fmt(grid.gain_percent_with_chance, 0)} %</span>'
+        '<span class="label">de gain estimé aux rangs avec n° chance</span></div>'
+        f'<p class="pred-why">+{_fmt(grid.gain_percent, 0)} % aux rangs qui ne '
+        'dépendent que des cinq boules. Probabilité de sortie strictement inchangée.</p>'
         '</article>'
         for grid in grids
     )
     bias = model.date_bias
+    chance_block = _chance_card(chance_model) if chance_model else ""
+    corrected = (
+        "Le témoin de volume est corrigé de la popularité du numéro chance tiré ; "
+        "sans cette correction, l'erreur de mesure atténue tous les coefficients."
+        if model.chance_corrected else ""
+    )
     return f"""
 <section id="foule">
   <h2><span class="num">06</span>Le seul avantage qui existe vraiment</h2>
   <p class="sub">On ne peut pas gagner plus souvent. On peut en revanche gagner
   plus <em>quand</em> on gagne, parce que les rangs du Loto sont à répartition et
-  que les joueurs, eux, ne tirent pas au hasard : ils jouent des dates de naissance.</p>
-  <div class="card">
-    <h3 style="margin-top:0;font-size:1rem">La preuve, dans les données de la FDJ</h3>
+  que les joueurs, eux, ne tirent pas au hasard. Deux biais, mesurés séparément.</p>
+  {chance_block}
+  <div class="card" style="margin-top:16px">
+    <h3 style="margin-top:0;font-size:1rem">Les cinq boules : le biais des dates de naissance</h3>
     <p class="pred-why">Régression du nombre de gagnants au rang « {escape(RANK_LABELS[model.response_rank])} »
-    sur la composition de la combinaison tirée, en neutralisant le volume de grilles
-    vendues. {_fmt(model.observations)} tirages, {escape(model.period)}, R² = {_fmt(model.r_squared, 3)}.</p>
+    sur la composition de la combinaison tirée, à volume de grilles vendues constant.
+    {_fmt(model.observations)} tirages, {escape(model.period)}, R² = {_fmt(model.r_squared, 3)}.
+    {escape(corrected)}</p>
     <div class="scroll-x"><table>
       <thead><tr><th>Variable</th><th class="num">Coefficient</th><th class="num">t</th>
       <th class="num">Effet par unité</th><th>Significatif</th></tr></thead>
@@ -399,9 +452,53 @@ def _section_crowd(model: CrowdModel, grids: Sequence[ContrarianGrid]) -> str:
   </div>
   <h3 style="margin:26px 0 4px;font-size:1.05rem">Grilles à contre-courant</h3>
   <p class="sub">Mêmes chances de sortir que n'importe quelle autre combinaison,
-  mais choisies pour être partagées avec le moins de monde possible.</p>
+  mais choisies pour être partagées avec le moins de monde possible — numéro
+  chance compris.</p>
   <div class="grid grid-3">{cards}</div>
 </section>"""
+
+
+def _chance_card(model: ChanceModel) -> str:
+    """Le biais du numéro chance : le plus fort des deux, et le plus simple à jouer."""
+    rows = "".join(
+        f'<tr><td class="num">{effect.number}</td>'
+        f'<td class="num">{"+" if effect.effect_percent >= 0 else ""}'
+        f'{_fmt(effect.effect_percent, 1)} %</td>'
+        f'<td class="num">{_fmt(effect.t_stat, 1)}</td>'
+        f'<td class="num {"pos" if effect.payout_multiplier > 1 else "neg"}">'
+        f'{"+" if effect.payout_multiplier >= 1 else ""}'
+        f'{_fmt(100 * (effect.payout_multiplier - 1), 1)} %</td></tr>'
+        for effect in sorted(model.effects, key=lambda e: e.log_effect)
+    )
+    chart = charts.diverging_bar_chart(
+        [(f"n° {e.number}", e.effect_percent)
+         for e in sorted(model.effects, key=lambda e: e.log_effect)],
+        positive_is_good=False,
+    )
+    best, worst = model.least_popular, model.most_popular
+    return f"""
+  <div class="card">
+    <h3 style="margin-top:0;font-size:1rem">Le numéro chance : le biais le plus violent</h3>
+    <p class="pred-why">Nombre de gagnants au rang « n° chance seul », rapporté au
+    rang « 2 numéros » — lequel ne dépend pas du numéro chance et mesure donc le
+    seul volume de grilles jouées. Tout écart restant vient des joueurs.
+    {_fmt(model.observations)} tirages, {escape(model.period)}, R² = {_fmt(model.r_squared, 3)}.</p>
+    <div class="grid grid-2">
+      <div class="scroll-x"><table>
+        <thead><tr><th class="num">N°</th><th class="num">Co-gagnants</th>
+        <th class="num">t</th><th class="num">Gain si vous le jouez</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table></div>
+      <div class="scroll-x">{chart}</div>
+    </div>
+    <p class="verdict">Quand le <strong>{worst.number}</strong> sort, il y a
+    <strong>{_fmt(worst.effect_percent, 0)} %</strong> de gagnants en plus qu'un numéro
+    chance moyen (t = {_fmt(worst.t_stat, 1)}) ; quand c'est le
+    <strong>{best.number}</strong>, il y en a {_fmt(abs(best.effect_percent), 0)} % de moins.
+    Jouer le {best.number} plutôt que le {worst.number} ne change strictement rien à
+    vos chances de gagner, mais rapporte <strong>{_fmt(model.spread_percent, 0)} %</strong>
+    de plus quand ça tombe. C'est la ligne la plus rentable de tout ce site.</p>
+  </div>"""
 
 
 def _section_economics(economics: Economics) -> str:
@@ -457,11 +554,14 @@ def build_html(
     repeat: float,
     backtest_report: BacktestReport,
     crowd_model: CrowdModel | None,
+    chance_model: ChanceModel | None,
     contrarian: Sequence[ContrarianGrid],
     economics: Economics,
     generated_at: datetime,
 ) -> str:
-    crowd_section = _section_crowd(crowd_model, contrarian) if crowd_model else ""
+    crowd_section = (
+        _section_crowd(crowd_model, contrarian, chance_model) if crowd_model else ""
+    )
     stamp = generated_at.strftime("%d/%m/%Y à %H:%M UTC")
     return f"""<!doctype html>
 <html lang="fr">
@@ -482,7 +582,7 @@ def build_html(
   prédiction ne vaut rien.</p>
   <div class="notice"><strong>À lire avant tout le reste.</strong> {escape(DISCLAIMER)}</div>
 </header>
-{_section_predictions(predictions, target_date, seed)}
+{_section_predictions(predictions, target_date, seed, last_draw.date)}
 {_section_last_draw(last_draw, draws)}
 {_section_randomness(ball_chi, chance_chi, ball_stats_, shape, repeat, len(draws))}
 {_section_gaps(ball_stats_, chance_stats_)}
@@ -516,6 +616,7 @@ def build_json(
     economics: Economics,
     total_draws: int,
     generated_at: datetime,
+    chance_model: ChanceModel | None = None,
 ) -> dict:
     """Flux machine, volontairement plat et stable."""
     return {
@@ -547,9 +648,24 @@ def build_json(
                 "chance": g.chance,
                 "co_gagnants_relatifs": round(g.crowd_score, 4),
                 "gain_relatif": round(g.payout_multiplier, 4),
+                "gain_relatif_avec_chance": round(g.payout_multiplier_with_chance, 4),
             }
             for g in contrarian
         ],
+        "biais_numero_chance": None if chance_model is None else {
+            "tirages": chance_model.observations,
+            "periode": chance_model.period,
+            "numeros": [
+                {
+                    "numero": e.number,
+                    "co_gagnants_relatifs": round(e.popularity, 4),
+                    "effet_pct": round(e.effect_percent, 2),
+                    "t": round(e.t_stat, 2),
+                    "gain_si_joue_pct": round(100 * (e.payout_multiplier - 1), 2),
+                }
+                for e in sorted(chance_model.effects, key=lambda e: e.log_effect)
+            ],
+        },
         "uniformite": {
             "khi2": round(ball_chi.statistic, 3),
             "ddl": ball_chi.dof,
@@ -569,6 +685,7 @@ def build_json(
                     "taux_grilles_gagnantes": round(r.hit_rate, 4),
                     "retour_sur_mise_pct": round(r.roi, 2),
                     "p_value_vs_hasard": round(r.p_value, 4),
+                    "p_value_holm": round(r.p_value_holm, 4),
                 }
                 for r in backtest_report.results
             ],
@@ -587,6 +704,6 @@ def write(output_dir: Path | str, html: str, payload: dict) -> tuple[Path, Path]
     (output_dir / "data").mkdir(parents=True, exist_ok=True)
     index = output_dir / "index.html"
     feed = output_dir / "data" / "latest.json"
-    index.write_text(html, encoding="utf-8")
+    index.write_text(_typography(html), encoding="utf-8")
     feed.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return index, feed

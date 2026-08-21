@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import csv
 import io
+from dataclasses import replace
 from datetime import date, datetime
 
-from .model import ERA_LEGACY, ERA_MODERN, Draw
+from .model import ERA_LEGACY, ERA_MODERN, KIND_REGULAR, Draw
 from .sources import ARCHIVES, Archive, fetch
 
 _WEEKDAYS = {
@@ -66,7 +67,7 @@ def _parse_weekday(value: str, fallback: date) -> str:
             "vendredi", "samedi", "dimanche")[fallback.weekday()]
 
 
-def parse_csv(text: str, *, source: str = "") -> list[Draw]:
+def parse_csv(text: str, *, source: str = "", kind: str = KIND_REGULAR) -> list[Draw]:
     """Transforme le contenu d'un CSV FDJ en tirages normalisés."""
     reader = csv.DictReader(io.StringIO(text), delimiter=";")
     draws: list[Draw] = []
@@ -86,9 +87,13 @@ def parse_csv(text: str, *, source: str = "") -> list[Draw]:
         complementaire = _parse_int(row.get("boule_complementaire"))
         era = ERA_LEGACY if len(balls) == 6 else ERA_MODERN
 
-        # Avant 2008 deux tirages pouvaient partager la même date.
+        # Avant 2008 deux tirages ordinaires pouvaient partager la même date, et
+        # un Super Loto pouvait s'ajouter par-dessus. L'identifiant porte donc le
+        # type en plus du rang dans la journée : sans cela il dépendrait de
+        # l'ordre de chargement des archives, et un tirage écraserait l'autre.
         sequence = _parse_int(row.get("1er_ou_2eme_tirage")) or 1
-        draw_id = f"{drawn_on.isoformat()}#{sequence}"
+        prefix = "" if kind == KIND_REGULAR else "S"
+        draw_id = f"{drawn_on.isoformat()}#{prefix}{sequence}"
 
         ranks: dict[int, tuple[int, float]] = {}
         for rank in range(1, 10):
@@ -105,6 +110,7 @@ def parse_csv(text: str, *, source: str = "") -> list[Draw]:
             balls=tuple(sorted(balls)),
             chance=chance,
             complementaire=complementaire,
+            kind=kind,
             fdj_id=_clean(row.get("annee_numero_de_tirage")),
             source=source,
             ranks=ranks,
@@ -114,13 +120,30 @@ def parse_csv(text: str, *, source: str = "") -> list[Draw]:
 
 def load_archive(archive: Archive) -> list[Draw]:
     """Télécharge puis analyse une archive."""
-    return parse_csv(fetch(archive), source=archive.name)
+    return parse_csv(fetch(archive), source=archive.name, kind=archive.kind)
 
 
 def load_all(archives: tuple[Archive, ...] = ARCHIVES) -> list[Draw]:
-    """Charge plusieurs archives et déduplique par identifiant de tirage."""
+    """Charge plusieurs archives et déduplique par identifiant de tirage.
+
+    Deux archives peuvent décrire le même tirage (le CDN et l'API servent des
+    fichiers qui se chevauchent) : à identifiant égal et combinaison identique,
+    la dernière lue gagne. Les tirages réellement distincts d'une même journée
+    sont déjà séparés par leur identifiant — rang dans la journée et type de
+    tirage. Le garde-fou ci-dessous ne sert qu'au cas résiduel où la FDJ
+    publierait deux combinaisons différentes sous le même numéro.
+    """
     seen: dict[str, Draw] = {}
     for archive in archives:
         for draw in load_archive(archive):
+            existing = seen.get(draw.draw_id)
+            if existing is not None and existing.balls != draw.balls:
+                collisions = sum(1 for d in seen.values()
+                                 if d.date == draw.date and d.kind == draw.kind)
+                prefix = "" if draw.is_regular else "S"
+                draw = replace(
+                    draw,
+                    draw_id=f"{draw.date.isoformat()}#{prefix}{collisions + 1}",
+                )
             seen[draw.draw_id] = draw
     return sorted(seen.values(), key=lambda d: (d.date, d.draw_id))

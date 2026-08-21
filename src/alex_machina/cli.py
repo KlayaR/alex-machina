@@ -11,9 +11,21 @@ from pathlib import Path
 
 from . import crowd, db, ingest, odds, report, stats
 from .backtest import run as run_backtest
-from .model import GRID_PRICE, RANK_LABELS, format_date, next_draw_date, rank_of
+from .model import (
+    ERA_LEGACY,
+    ERA_MODERN,
+    GRID_PRICE,
+    KIND_REGULAR,
+    KIND_SPECIAL,
+    RANK_LABELS,
+    expected_repeat,
+    format_date,
+    next_draw_date,
+    next_friday_13,
+    rank_of,
+)
 from .predictors import STRATEGIES, STRATEGY_BY_KEY, predict, predict_all
-from .sources import ARCHIVES, LIVE_ARCHIVE
+from .sources import ALL_ARCHIVES, LIVE_ARCHIVES
 
 
 def _console() -> None:
@@ -28,7 +40,10 @@ def _fmt(value: float, digits: int = 0) -> str:
 
 
 def _rule(title: str) -> None:
-    print(f"\n\033[1m{title}\033[0m")
+    # Pas de séquence ANSI quand la sortie est redirigée : dans un fichier ou un
+    # journal de CI, « \033[1m » n'est pas du gras, c'est du bruit.
+    bold, reset = ("\033[1m", "\033[0m") if sys.stdout.isatty() else ("", "")
+    print(f"\n{bold}{title}{reset}")
     print("─" * min(len(title) + 8, 72))
 
 
@@ -37,7 +52,26 @@ def _dataset_path(args: argparse.Namespace) -> Path:
     return Path(args.db).parent / "tirages.csv"
 
 
-def _load(args: argparse.Namespace, *, payouts: bool = False):
+def _load(
+    args: argparse.Namespace,
+    *,
+    payouts: bool = False,
+    modern_only: bool = False,
+    regular_only: bool = True,
+):
+    """Charge le jeu de tirages correspondant aux options de la commande.
+
+    ``modern_only`` marque les commandes dont les règles sont câblées sur le
+    5/49 actuel — rangs de gain, prix de la grille, numéro chance. Les appliquer
+    au 6/49 d'avant 2008 ne produirait pas une approximation mais un contresens,
+    donc on refuse plutôt que de sortir des chiffres faux.
+    """
+    if modern_only and args.era != ERA_MODERN:
+        raise SystemExit(
+            f"Cette commande ne vaut que pour l'ère {ERA_MODERN} : les rangs de gain, "
+            f"le numéro chance et le prix de la grille n'existent pas en {args.era}.\n"
+            f"Seule « stats » sait analyser l'ère {args.era}."
+        )
     conn = db.connect(args.db)
     if db.count_draws(conn) == 0:
         dataset = _dataset_path(args)
@@ -46,7 +80,16 @@ def _load(args: argparse.Namespace, *, payouts: bool = False):
                 "Base vide. Lancez d'abord :  python -m alex_machina update --full"
             )
         db.upsert_draws(conn, db.import_csv(dataset))
-    draws = db.load_draws(conn, era=None if args.all_eras else "5/49", with_payouts=payouts)
+
+    include_special = getattr(args, "include_special", False) and not regular_only
+    draws = db.load_draws(
+        conn,
+        era=args.era,
+        kind=None if include_special else KIND_REGULAR,
+        with_payouts=payouts,
+    )
+    if not draws:
+        raise SystemExit(f"Aucun tirage en base pour l'ère {args.era}.")
     return conn, draws
 
 
@@ -56,7 +99,7 @@ def _load(args: argparse.Namespace, *, payouts: bool = False):
 
 
 def cmd_update(args: argparse.Namespace) -> int:
-    archives = ARCHIVES if args.full else (LIVE_ARCHIVE,)
+    archives = ALL_ARCHIVES if args.full else LIVE_ARCHIVES
     _rule("Mise à jour depuis les archives officielles FDJ")
     conn = db.connect(args.db)
 
@@ -72,10 +115,11 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     fetched = []
     for archive in archives:
-        print(f"  · {archive.name:<16} {archive.period}", end="", flush=True)
+        print(f"  · {archive.name:<18} {archive.period}", end="", flush=True)
         draws = ingest.load_archive(archive)
         fetched.extend(draws)
-        print(f"  → {len(draws)} tirages")
+        suffix = f" ({archive.label})" if archive.label else ""
+        print(f"  → {len(draws)} tirages{suffix}")
 
     added, updated = db.upsert_draws(conn, fetched)
     total = db.count_draws(conn)
@@ -86,6 +130,8 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     print(f"\n  {added} nouveau(x), {updated} mis à jour, {total} au total "
           f"(base {before} → {total}).")
+    special = db.count_draws(conn, kind=KIND_SPECIAL)
+    print(f"  Dont {special} tirages exceptionnels (Super Loto, Grand Loto, Loto de Noël).")
     if latest:
         print(f"  Dernier tirage connu : {format_date(latest.date)} — {latest.combination}")
     if previous and latest and latest.date > previous.date:
@@ -94,8 +140,17 @@ def cmd_update(args: argparse.Namespace) -> int:
     return 0
 
 
+def _special_draw_notice(last: date, target: date) -> str | None:
+    """Signale un vendredi 13 qui s'intercalerait avant le prochain tirage regulier."""
+    friday = next_friday_13(last)
+    if friday and friday < target:
+        return (f"Un Super Loto tombe le {format_date(friday)}, avant ce tirage : "
+                f"les treize vendredis 13 depuis 2019 en ont tous eu un.")
+    return None
+
+
 def cmd_predict(args: argparse.Namespace) -> int:
-    conn, draws = _load(args)
+    conn, draws = _load(args, modern_only=True)
     target = next_draw_date(draws[-1].date)
     seed = args.seed or target.isoformat()
 
@@ -115,20 +170,24 @@ def cmd_predict(args: argparse.Namespace) -> int:
     for prediction in predictions:
         print(f"  {prediction.label:<22} {prediction.combination}")
     print(f"\n  Graine : {seed} · {len(draws)} tirages d'historique")
+    notice = _special_draw_notice(draws[-1].date, target)
+    if notice:
+        print(f"  ⚠ {notice}")
     print("  Chacune de ces grilles a une chance sur 19 068 840 de décrocher le rang 1,")
     print("  exactement comme n'importe quelle autre combinaison. Voir « backtest ».")
     return 0
 
 
 def cmd_stats(args: argparse.Namespace) -> int:
-    conn, draws = _load(args)
+    conn, draws = _load(args, regular_only=False)
     ball = stats.ball_stats(draws)
     chance = stats.chance_stats(draws)
     chi = stats.chi_square_uniform([s.count for s in ball])
     chance_chi = stats.chi_square_uniform([s.count for s in chance])
     shape = stats.shape_stats(draws)
 
-    _rule(f"Statistiques sur {len(draws)} tirages "
+    portee = "réguliers et exceptionnels" if args.include_special else "réguliers"
+    _rule(f"Statistiques · ère {args.era} · {len(draws)} tirages {portee} "
           f"({draws[0].date} → {draws[-1].date})")
 
     print("\n  Numéros les plus sortis")
@@ -143,21 +202,24 @@ def cmd_stats(args: argparse.Namespace) -> int:
     print("\n  Test d'uniformité (khi-deux)")
     print(f"    Boules  : X² = {chi.statistic:.1f} · ddl {chi.dof} · p = {chi.p_value:.3f}")
     print(f"              → {chi.verdict}")
-    print(f"    Chance  : X² = {chance_chi.statistic:.1f} · ddl {chance_chi.dof} "
-          f"· p = {chance_chi.p_value:.3f}")
+    if chance_chi.dof:
+        print(f"    Chance  : X² = {chance_chi.statistic:.1f} · ddl {chance_chi.dof} "
+              f"· p = {chance_chi.p_value:.3f}")
 
     print("\n  Forme des combinaisons gagnantes")
     print(f"    Somme moyenne      {shape.mean_sum:.1f}  (80 % entre {shape.sum_p10} et {shape.sum_p90})")
     print(f"    Impairs / tirage   {shape.mean_odd:.2f}")
-    print(f"    Numéros ≤ 25       {shape.mean_low:.2f}")
+    print(f"    Numéros ≤ 25       {shape.mean_low:.2f}  (moitié basse de la grille)")
     print(f"    Paires consécutives {shape.mean_consecutive:.2f}")
-    print(f"    Report d'un tirage sur l'autre  {stats.repeat_rate(draws):.2f} numéro "
-          f"(théorie : 0,51)")
+    observe = _fmt(stats.repeat_rate(draws), 2)
+    theorie = _fmt(expected_repeat(args.era), 2)
+    print(f"    Report d'un tirage sur l'autre  {observe} numéro "
+          f"(théorie en {args.era} : {theorie})")
     return 0
 
 
 def cmd_backtest(args: argparse.Namespace) -> int:
-    conn, draws = _load(args, payouts=True)
+    conn, draws = _load(args, payouts=True, modern_only=True)
     _rule(f"Backtest sur les {args.window} derniers tirages "
           f"× {args.repeats} grilles par stratégie")
     print("  Calcul en cours, chaque stratégie ne voit que le passé…\n")
@@ -167,42 +229,62 @@ def cmd_backtest(args: argparse.Namespace) -> int:
     print(header)
     print("  " + "─" * (len(header) - 2))
     for r in result.results:
-        marker = "témoin" if r.key == "uniforme" else f"p={r.p_value:.2f}"
+        marker = "témoin" if r.key == "uniforme" else f"p={r.p_value_holm:.2f}"
         print(f"  {r.label:<22}{r.mean_matches:>9.4f}{100 * r.hit_rate:>10.1f}%"
               f"{_fmt(r.stake):>10}{_fmt(r.winnings):>10}{r.roi:>8.1f}%{marker:>11}")
 
     print(f"\n  Période : {result.first_date} → {result.last_date}")
+    print("  Test apparié par tirage, p-values corrigées par Holm-Bonferroni.")
     if result.any_significant:
-        print("  Une stratégie s'écarte du hasard à 5 % — sur sept tests simultanés,")
-        print("  c'est le résultat le plus banal qui soit. Relancez sur une autre fenêtre.")
+        print("  Une stratégie s'écarte du hasard à 5 % même après correction de Holm.")
+        print("  Relancez sur une autre fenêtre : l'écart ne survivra pas.")
     else:
         print("  Aucune stratégie ne se distingue du hasard pur. Comme prévu.")
     return 0
 
 
 def cmd_crowd(args: argparse.Namespace) -> int:
-    conn, draws = _load(args, payouts=True)
+    conn, draws = _load(args, payouts=True, modern_only=True)
     _rule("Modèle de foule — le seul avantage réel")
-    model = crowd.fit(draws)
-    print(f"  {model.observations} tirages exploitables ({model.period}), "
-          f"R² = {model.r_squared:.3f}\n")
-    print(f"  {'Variable':<44}{'Coef.':>9}{'t':>8}{'Effet':>10}")
-    print("  " + "─" * 69)
+
+    chance_model = crowd.fit_chance(draws)
+    model = crowd.fit(draws, chance_model=chance_model)
+
+    print(f"  Le numéro chance ({chance_model.observations} tirages, "
+          f"R² = {chance_model.r_squared:.3f})")
+    print(f"    {'N°':<5}{'Co-gagnants':>13}{'t':>8}{'Gain si joué':>15}")
+    print("    " + "─" * 39)
+    for effect in sorted(chance_model.effects, key=lambda e: e.log_effect):
+        star = " *" if effect.significant else ""
+        print(f"    {effect.number:<5}{effect.effect_percent:>+12.1f} %{effect.t_stat:>8.1f}"
+              f"{100 * (effect.payout_multiplier - 1):>+14.1f} %{star}")
+    print(f"    → Jouer le {chance_model.least_popular.number} plutôt que le "
+          f"{chance_model.most_popular.number} : {chance_model.spread_percent:.0f} % "
+          f"de gain en plus aux rangs concernés.")
+
+    print(f"\n  Les cinq boules ({model.observations} tirages, {model.period}, "
+          f"R² = {model.r_squared:.3f})")
+    print(f"    {'Variable':<44}{'Coef.':>9}{'t':>8}{'Effet':>10}")
+    print("    " + "─" * 71)
     for coefficient in model.coefficients[1:]:
         star = " *" if coefficient.significant else ""
-        print(f"  {coefficient.name:<44}{coefficient.value:>9.4f}"
+        print(f"    {coefficient.name:<44}{coefficient.value:>9.4f}"
               f"{coefficient.t_stat:>8.1f}{coefficient.effect_percent:>9.1f} %{star}")
 
     print("\n  Grilles à contre-courant "
           "(probabilité identique, gain partagé plus rarement) :")
-    for grid in crowd.contrarian_grids(model, draws, count=args.grids, seed=args.seed or 0):
-        print(f"    {grid.combination}   co-gagnants ×{grid.crowd_score:.2f}  "
-              f"→ gain estimé +{grid.gain_percent:.0f} %")
+    grids = crowd.contrarian_grids(
+        model, draws, count=args.grids, seed=args.seed or 0, chance_model=chance_model
+    )
+    for grid in grids:
+        print(f"    {grid.combination}   gain estimé "
+              f"+{grid.gain_percent:.0f} % (rangs sans n° chance), "
+              f"+{grid.gain_percent_with_chance:.0f} % (avec n° chance)")
     return 0
 
 
 def cmd_odds(args: argparse.Namespace) -> int:
-    conn, draws = _load(args, payouts=True)
+    conn, draws = _load(args, payouts=True, modern_only=True)
     economics = odds.economics(draws)
     _rule("Économie d'une grille simple")
     print(f"  {'Rang':<26}{'Probabilité':>18}{'Rapport moyen':>16}{'Apport':>10}")
@@ -225,7 +307,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if not 1 <= args.chance <= 10:
         raise SystemExit("Le numéro chance va de 1 à 10.")
 
-    conn, draws = _load(args, payouts=True)
+    conn, draws = _load(args, payouts=True, modern_only=True)
     if args.since:
         limit = date.fromisoformat(args.since)
         draws = [d for d in draws if d.date >= limit]
@@ -262,7 +344,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    conn, draws = _load(args, payouts=True)
+    conn, draws = _load(args, payouts=True, modern_only=True)
     generated_at = datetime.now(timezone.utc)
     target = next_draw_date(draws[-1].date)
     seed = args.seed or target.isoformat()
@@ -285,13 +367,16 @@ def cmd_build(args: argparse.Namespace) -> int:
     backtest_report = run_backtest(draws, window=args.window, repeats=args.repeats)
     print(" ✓")
 
-    print("  · modèle de foule", end="", flush=True)
+    print("  · modèles de foule", end="", flush=True)
     try:
-        model = crowd.fit(draws)
-        contrarian = crowd.contrarian_grids(model, draws, count=6, seed=seed)
+        chance_model = crowd.fit_chance(draws)
+        model = crowd.fit(draws, chance_model=chance_model)
+        contrarian = crowd.contrarian_grids(
+            model, draws, count=6, seed=seed, chance_model=chance_model
+        )
     except ValueError as error:
-        print(f" ⚠ ignoré ({error})")
-        model, contrarian = None, []
+        print(f" ⚠ ignorés ({error})")
+        model, chance_model, contrarian = None, None, []
     else:
         print(" ✓")
 
@@ -302,13 +387,14 @@ def cmd_build(args: argparse.Namespace) -> int:
         last_draw=draws[-1], draws=draws, ball_chi=ball_chi, chance_chi=chance_chi,
         ball_stats_=ball_stats_, chance_stats_=chance_stats_, shape=shape,
         repeat=repeat, backtest_report=backtest_report, crowd_model=model,
-        contrarian=contrarian, economics=economics, generated_at=generated_at,
+        chance_model=chance_model, contrarian=contrarian, economics=economics,
+        generated_at=generated_at,
     )
     payload = report.build_json(
         predictions=predictions, target_date=target, last_draw=draws[-1],
         ball_stats_=ball_stats_, ball_chi=ball_chi, backtest_report=backtest_report,
         contrarian=contrarian, economics=economics, total_draws=len(draws),
-        generated_at=generated_at,
+        generated_at=generated_at, chance_model=chance_model,
     )
     index, feed = report.write(args.output, html, payload)
     print(f"\n  {index}  ({index.stat().st_size // 1024} Ko)")
@@ -328,8 +414,14 @@ def build_parser() -> argparse.ArgumentParser:
                     "qu'aucune prédiction ne tient la route.",
     )
     parser.add_argument("--db", default="data/loto.sqlite", help="chemin de la base SQLite")
-    parser.add_argument("--all-eras", action="store_true",
-                        help="inclure l'ère 6/49 (1976-2008) dans les analyses")
+    parser.add_argument("--era", choices=[ERA_MODERN, ERA_LEGACY], default=ERA_MODERN,
+                        help="ère analysée. Les deux ne se mélangent jamais dans une "
+                             "même statistique : 5 boules et 6 boules n'ont ni les "
+                             "mêmes probabilités ni les mêmes valeurs de référence")
+    parser.add_argument("--avec-exceptionnels", dest="include_special", action="store_true",
+                        help="inclure les Super Loto et Grand Loto dans « stats » "
+                             "(ignoré ailleurs : leurs cagnottes et leurs volumes de "
+                             "jeu ne sont pas comparables au calendrier ordinaire)")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     update = subparsers.add_parser("update", help="télécharger les derniers tirages")

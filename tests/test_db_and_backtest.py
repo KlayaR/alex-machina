@@ -86,8 +86,8 @@ def test_report_builds_valid_html_and_json(synthetic_draws):
         chance_chi=stats.chi_square_uniform([s.count for s in chance]),
         ball_stats_=ball, chance_stats_=chance, shape=stats.shape_stats(draws),
         repeat=stats.repeat_rate(draws), backtest_report=backtest_report,
-        crowd_model=None, contrarian=[], economics=odds.economics(draws),
-        generated_at=generated_at,
+        crowd_model=None, chance_model=None, contrarian=[],
+        economics=odds.economics(draws), generated_at=generated_at,
     )
     assert html.startswith("<!doctype html>")
     assert html.count("<section") == html.count("</section>")

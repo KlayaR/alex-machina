@@ -4,10 +4,13 @@
 > Ici, la machine descend, annonce cinq numéros, et explique posément pourquoi
 > vous ne devriez pas l'écouter.
 
-Alex Machina analyse l'intégralité de l'histoire du Loto français — **7 655 tirages
-depuis le 19 mai 1976** — produit des grilles pour le prochain tirage selon sept
-méthodes différentes, puis démontre, chiffres à l'appui, qu'aucune de ces sept
-méthodes ne bat le tirage au sort le plus bête.
+Alex Machina analyse l'intégralité de l'histoire du Loto français — **7 769 tirages
+depuis le 19 mai 1976**, tirages exceptionnels compris — produit des grilles pour
+le prochain tirage selon quatre méthodes différentes, puis démontre, chiffres à
+l'appui, qu'aucune ne bat le tirage au sort le plus bête.
+
+Puis il fait la seule chose qui marche réellement : optimiser non pas la
+probabilité de gagner, mais le **montant** gagné quand on gagne.
 
 **[→ Tableau de bord, mis à jour après chaque tirage](https://klayar.github.io/alex-machina/)**
 
@@ -20,25 +23,25 @@ Prédire un tirage du Loto est impossible, et pas « difficile » : impossible. 
 indépendamment de tout ce qui a précédé. Le projet part de là et en fait son sujet :
 
 1. **Il implémente sérieusement** les intuitions que tout le monde a — numéros
-   chauds, retardataires, numéros qui « sortent ensemble », momentum.
+   chauds, retardataires, numéros qui « sortent ensemble ».
 2. **Il les teste honnêtement**, en rejouant chaque tirage passé avec les seules
    données disponibles à l'époque, aux rapports réellement versés ce jour-là.
 3. **Il publie le résultat**, y compris quand il est humiliant pour l'algorithme.
-
-Et une fois cela posé, il fait la seule chose qui marche vraiment : optimiser non
-pas la probabilité de gagner, mais le **montant** gagné quand on gagne.
 
 ## Ce que ça sait faire
 
 | | |
 |---|---|
-| **Sept oracles** | Hasard pur, chauds, froids, retardataires, compagnons de route, momentum, et l'ensemble « Alex Machina » qui combine tout. Grilles reproductibles à la graine près. |
-| **Backtest walk-forward** | Rejoue les 400 derniers tirages sans jamais laisser fuir d'information future. Compare chaque stratégie au hasard pur par un test de Welch. |
+| **Quatre oracles** | Hasard pur (le témoin), numéros chauds, retardataires, et l'ensemble « Alex Machina ». Chacun choisit son numéro chance selon la même logique que ses boules. Grilles reproductibles à la graine près. |
+| **Backtest walk-forward** | Rejoue les 400 derniers tirages sans jamais laisser fuir d'information future. Comparaison **appariée** au hasard pur, p-values corrigées par **Holm-Bonferroni**. |
 | **Test du khi-deux** | Mesure l'uniformité réelle des 49 boules et des 10 numéros chance. Fonction de répartition du χ² implémentée à la main, sans SciPy. |
-| **Modèle de foule** | Régression du nombre de gagnants sur la composition de la combinaison tirée. Prouve le biais « date de naissance » et en tire des grilles à contre-courant. |
-| **Économie de la grille** | Espérance de gain calculée sur les rapports réels de la FDJ, rang par rang. Taux de retour effectif, perte moyenne, temps d'attente du jackpot. |
+| **Biais du numéro chance** | Le plus fort des deux biais mesurés, et le plus simple à jouer. Jouer le 1 plutôt que le 7 rapporte **98 % de plus** aux rangs concernés, à probabilité rigoureusement identique. |
+| **Biais des dates de naissance** | Régression du nombre de gagnants sur la composition de la combinaison tirée. Chaque numéro ≤ 31 attire 17 % de co-gagnants en plus (t = 23). |
+| **Économie de la grille** | Espérance de gain calculée sur les rapports réellement versés par la FDJ, rang par rang. Taux de retour effectif, perte moyenne, temps d'attente du jackpot. |
 | **Rejouer sa grille fétiche** | `check` rejoue vos cinq numéros sur tout l'historique et vous dit exactement ce qu'ils auraient coûté. |
-| **Mise à jour automatique** | GitHub Actions relance tout après chaque tirage (lundi, mercredi, samedi), commite les nouvelles données et republie le tableau de bord. |
+| **Deux ères, jamais mélangées** | Le 6/49 d'avant 2008 et le 5/49 actuel n'ont ni les mêmes probabilités ni les mêmes valeurs de référence. Les analyses portent sur une ère à la fois. |
+| **Tirages exceptionnels** | Super Loto, Grand Loto, Loto de Noël : 114 tirages, ingérés et identifiés à part de leur propre calendrier. |
+| **Mise à jour automatique** | GitHub Actions relance tout après chaque tirage, commite les nouvelles données et republie le tableau de bord. |
 | **Jeu de données ouvert** | `data/tirages.csv` : 50 ans de tirages avec les gagnants et rapports des 9 rangs, en CSV brut. |
 
 ## Démarrage
@@ -64,12 +67,9 @@ python -m alex_machina predict
 Grilles pour le tirage du samedi 22 août 2026
 ─────────────────────────────────────────────
   Hasard pur             01-04-30-36-40 + 9
-  Numéros chauds         05-08-23-32-47 + 7
-  Numéros froids         20-21-22-35-41 + 7
+  Numéros chauds         05-09-24-33-48 + 7
   Retardataires          16-17-36-40-46 + 8
-  Compagnons de route    26-29-30-33-34 + 1
-  Momentum               05-12-22-26-32 + 7
-  Alex Machina           10-17-23-34-41 + 1
+  Alex Machina           09-11-24-36-43 + 2
 ```
 
 ### Les autres commandes
@@ -79,18 +79,19 @@ python -m alex_machina stats
 ```
 
 Fréquences, retards, tests d'uniformité, forme des combinaisons gagnantes.
+`--era 6/49` bascule sur l'ancien jeu, `--avec-exceptionnels` ajoute les Super Loto.
 
 ```bash
 python -m alex_machina backtest --window 400 --repeats 3
 ```
 
-Le moment de vérité. Compte une quinzaine de secondes.
+Le moment de vérité. Compte une dizaine de secondes.
 
 ```bash
 python -m alex_machina crowd
 ```
 
-Le biais des joueurs, et les grilles construites pour l'éviter.
+Les deux biais des joueurs, et les grilles construites pour les éviter.
 
 ```bash
 python -m alex_machina check 3 12 21 27 34 --chance 7 --since 2019-11-04
@@ -106,48 +107,78 @@ Régénère `docs/index.html` et `docs/data/latest.json`.
 
 ## Ce que dit le backtest
 
-Sur les 400 derniers tirages, trois grilles par stratégie et par tirage, aux
-rapports officiels de chaque jour :
+Sur les 400 derniers tirages (31/01/2024 → 19/08/2026), trois grilles par
+stratégie et par tirage, aux rapports officiels de chaque jour :
 
-| Stratégie | Bons numéros / grille | Retour sur mise | vs hasard pur |
+| Stratégie | Bons numéros / grille | Retour sur mise | p (Holm) |
 |---|---:|---:|---:|
 | Hasard pur | 0,5300 | −72,5 % | *témoin* |
-| Numéros chauds | 0,5058 | −70,7 % | p = 0,36 |
-| Numéros froids | 0,5267 | −67,7 % | p = 0,90 |
-| Retardataires | 0,5083 | −58,6 % | p = 0,41 |
-| Compagnons de route | 0,5067 | −71,8 % | p = 0,37 |
-| Momentum | 0,4975 | −70,9 % | p = 0,22 |
-| Alex Machina | 0,4925 | −74,1 % | p = 0,15 |
+| Numéros chauds | 0,4950 | −69,0 % | 0,63 |
+| Retardataires | 0,5083 | −58,6 % | 0,63 |
+| Alex Machina | 0,4967 | −72,2 % | 0,63 |
 
 L'espérance théorique est de **0,5102 bon numéro par grille**, quelle que soit la
-méthode. Toutes les stratégies s'y collent, aucune ne s'en écarte
-significativement, et l'ordre du classement change à chaque nouveau tirage. C'est
-la signature du bruit, pas du talent.
+méthode. Toutes s'y collent, aucune ne s'en écarte, et l'ordre du classement
+change à chaque nouveau tirage.
+
+Deux précautions, sans lesquelles ce backtest fabriquerait de faux signaux.
+**L'appariement** : trois grilles jouées sur le même tirage partagent la même
+cible et ne font pas trois observations indépendantes, donc on agrège par tirage
+avant de comparer. **La correction de Holm-Bonferroni** : trois stratégies
+comparées au témoin, ce sont trois occasions de tomber sur un p < 0,05 par pur
+hasard.
 
 ## Le seul avantage qui existe vraiment
 
 Les rangs du Loto sont à **répartition** : la cagnotte d'un rang est partagée
-entre tous ses gagnants. Or les joueurs ne tirent pas au hasard — ils jouent des
-dates de naissance, ce qui sur-représente massivement les numéros 1 à 31.
+entre tous ses gagnants. Or les joueurs ne tirent pas au hasard. Deux biais,
+mesurés séparément sur les données de la FDJ.
 
-Alex Machina le vérifie sur les données de la FDJ, en régressant le nombre de
-gagnants au rang « 3 numéros » sur la composition de la combinaison tirée, en
-neutralisant le volume de grilles vendues (1 480 tirages, R² = 0,66) :
+### Le numéro chance : +98 % entre le meilleur et le pire
+
+On régresse le nombre de gagnants au rang « n° chance seul » sur le nombre de
+gagnants au rang « 2 numéros » — lequel ne dépend pas du numéro chance et mesure
+donc le seul volume de grilles vendues. Tout écart restant vient des joueurs.
+1 480 tirages, R² = 0,80.
+
+| N° chance | Co-gagnants vs moyenne | t | Gain si vous le jouez |
+|---:|---:|---:|---:|
+| **1** | **−24,3 %** | −25,3 | **+32,1 %** |
+| 10 | −20,1 % | −21,3 | +25,1 % |
+| 2 | −13,0 % | −13,4 | +15,0 % |
+| … | | | |
+| 3 | +8,1 % | 7,4 | −7,5 % |
+| 5 | +19,4 % | 16,8 | −16,3 % |
+| **7** | **+49,8 %** | **37,7** | **−33,3 %** |
+
+Quand le 7 sort, il y a moitié plus de gagnants à se partager la cagnotte que
+pour un numéro chance moyen. Jouer le 1 plutôt que le 7 ne change **rien** à vos
+chances de gagner, mais rapporte 98 % de plus quand ça tombe.
+
+### Les cinq boules : le biais des dates de naissance
+
+Même méthode, sur le rang « 3 numéros », à volume constant. 1 480 tirages,
+R² = 0,86.
 
 | Variable | Coefficient | t | Effet par unité |
 |---|---:|---:|---:|
-| log(volume de grilles jouées) | 0,6160 | 36,3 | +85,2 % |
-| **numéros ≤ 31** (biais date de naissance) | **0,1479** | **13,9** | **+15,9 %** |
-| numéros ≤ 12 (biais mois de naissance) | 0,0502 | 5,0 | +5,2 % |
-| paires de numéros consécutifs | −0,0375 | −4,4 | −3,7 % |
+| log(volume de grilles jouées) | 0,9751 | 73,6 | — |
+| **numéros ≤ 31** (date de naissance) | **0,1576** | **23,2** | **+17,1 %** |
+| numéros ≤ 12 (mois de naissance) | 0,0545 | 8,5 | +5,6 % |
+| paires de numéros consécutifs | −0,0490 | −9,1 | −4,8 % |
+| somme de la combinaison (centrée) | −0,0179 | −2,3 | −1,8 % |
 
-Chaque numéro tiré inférieur ou égal à 31 augmente de près de 16 % le nombre de
-gagnants à ce rang. Le biais n'est pas une légende : il est massif et mesurable.
+Le coefficient sur le volume vaut 0,975, à un cheveu de la valeur 1 que la
+théorie impose — c'est le signe que le modèle est correctement spécifié. Il
+valait 0,62 tant que le témoin de volume n'était pas corrigé de la popularité du
+numéro chance : cette erreur de mesure atténuait tous les coefficients et faisait
+**sous-estimer** le biais des dates de naissance, pas l'inverse.
 
-**Ce que ça change, et ce que ça ne change pas.** Une grille composée de numéros
-élevés n'a strictement aucune chance supplémentaire de sortir. Mais quand elle
-sort, elle est partagée avec beaucoup moins de monde — de l'ordre de **+55 % sur
-le montant perçu** aux rangs à répartition. L'espérance de gain reste
+**Ce que ça change, et ce que ça ne change pas.** Une grille de numéros élevés
+avec un numéro chance impopulaire n'a strictement aucune chance supplémentaire de
+sortir. Mais quand elle sort, elle est partagée avec beaucoup moins de monde :
+de l'ordre de **+59 %** aux rangs qui ne dépendent que des boules, et **+110 %**
+à ceux qui font aussi intervenir le numéro chance. L'espérance de gain reste
 franchement négative ; elle l'est simplement un peu moins.
 
 ## Ce que coûte une grille
@@ -164,9 +195,12 @@ faudrait en moyenne **122 236 ans** pour y arriver.
 
 ## Les données
 
-Cinq archives CSV officielles couvrent l'intégralité de l'histoire du jeu. Elles
+Onze archives CSV officielles couvrent l'intégralité de l'histoire du jeu. Elles
 sont récupérées via l'API publique `sto.api.fdj.fr`, celle qu'utilise le site
-fdj.fr, avec repli sur le miroir CDN `media.fdj.fr`.
+fdj.fr, avec repli sur le miroir CDN `media.fdj.fr` — lequel peut avoir plusieurs
+années de retard, d'où l'ordre.
+
+**Calendrier régulier** (lundi, mercredi, samedi) :
 
 | Archive | Période | Règles |
 |---|---|---|
@@ -176,17 +210,34 @@ fdj.fr, avec repli sur le miroir CDN `media.fdj.fr`.
 | `loto_201902` | 27/02/2019 → 02/11/2019 | idem |
 | `loto_201911` | 06/11/2019 → aujourd'hui | idem, trois tirages par semaine |
 
+**Tirages exceptionnels** : `sloto`, `nouveau_superloto`, `superloto2017`,
+`lotonoel2017`, `superloto_201907`, `grandloto_201912` — 114 tirages au total.
+Ils s'ajoutent au calendrier sans jamais le remplacer : sur les 71 tirages
+exceptionnels de l'ère actuelle, **aucun** n'est tombé un lundi, un mercredi ou
+un samedi. Ils sont stockés à part, parce que leurs cagnottes et leurs volumes de
+jeu ne sont pas comparables à ceux d'un tirage ordinaire.
+
 Le format a changé quatre fois (31 → 26 → 35 → 50 colonnes, dates en `YYYYMMDD`
 puis en `JJ/MM/AAAA`, jours abrégés puis en toutes lettres). Le parseur travaille
 par nom de colonne, jamais par position.
 
-Par défaut, toutes les analyses portent sur l'ère actuelle — le jeu de 1976
-n'avait ni les mêmes règles ni les mêmes probabilités. `--all-eras` inclut tout.
-
 Le résultat consolidé est versionné dans **`data/tirages.csv`** : une ligne par
-tirage, les cinq (ou six) numéros, le numéro chance, et le nombre de gagnants et
-le rapport pour chacun des neuf rangs. La base SQLite, elle, est un artefact
-local reconstructible et n'est pas versionnée.
+tirage, les numéros, le numéro chance, le type de tirage, et le nombre de
+gagnants et le rapport pour chacun des neuf rangs. La base SQLite, elle, est un
+artefact local reconstructible et n'est pas versionnée.
+
+## Ce que ça ne sait pas faire
+
+- **Annoncer un tirage exceptionnel.** La FDJ ne publie pas de calendrier
+  exploitable, et l'API des tirages à venir renvoie une réponse vide. Le
+  tableau de bord signale les vendredis 13 — les treize derniers depuis 2019 ont
+  tous eu un Super Loto — mais les autres (Halloween, Noël, Saint-Valentin) sont
+  annoncés au coup par coup et restent imprévisibles.
+- **Détecter un petit avantage.** Le backtest porte sur 400 tirages ; il écarterait
+  sans peine une méthode qui gagnerait 20 % de plus que le hasard, pas une qui en
+  gagnerait 2 %. L'absence de preuve n'est pas la preuve de l'absence — même si,
+  ici, la théorie tranche déjà la question.
+- **Prédire quoi que ce soit.** C'est le sujet du projet, pas une limite.
 
 ## Comment la mise à jour se déclenche
 
@@ -194,8 +245,8 @@ Le workflow [`tirage.yml`](.github/workflows/tirage.yml) tourne le soir de chaqu
 tirage (21 h UTC, lundi/mercredi/samedi) et repasse le lendemain matin en
 rattrapage, parce que la FDJ republie ses CSV avec un délai variable. Il :
 
-1. récupère les archives et détecte les tirages inédits ;
-2. reconstruit statistiques, backtest, modèle de foule et prédictions ;
+1. récupère les onze archives et détecte les tirages inédits ;
+2. reconstruit statistiques, backtest, modèles de foule et prédictions ;
 3. commite `data/tirages.csv` et `docs/` **seulement s'il y a du nouveau** ;
 4. republie le tableau de bord sur GitHub Pages.
 
@@ -208,11 +259,11 @@ site est tout de même reconstruit depuis le CSV versionné.
 src/alex_machina/
   sources.py      téléchargement des archives FDJ (API + repli CDN)
   ingest.py       parsing des quatre formats de CSV historiques
-  model.py        Draw, rangs de gain, calendrier des tirages
+  model.py        Draw, rangs de gain, ères, calendrier des tirages
   db.py           SQLite + export/import du jeu de données CSV
   stats.py        fréquences, écarts, khi-deux, forme des combinaisons
-  predictors.py   les sept stratégies et l'échantillonnage pondéré
-  backtest.py     simulation walk-forward et test de Welch
+  predictors.py   les quatre stratégies et l'échantillonnage pondéré
+  backtest.py     simulation walk-forward, test apparié, correction de Holm
   crowd.py        moindres carrés maison, biais des joueurs, grilles à contre-courant
   odds.py         probabilités exactes et espérance empirique
   charts.py       SVG écrit à la main, sans dépendance
@@ -226,7 +277,7 @@ src/alex_machina/
 pip install -e ".[dev]" && pytest
 ```
 
-71 tests, dont deux d'intégration qui vérifient que la FDJ n'a pas changé ses URL
+89 tests, dont deux d'intégration qui vérifient que la FDJ n'a pas changé ses URL
 (désactivés par défaut, `ALEX_MACHINA_NETWORK_TESTS=1` pour les activer).
 
 ## Avertissement

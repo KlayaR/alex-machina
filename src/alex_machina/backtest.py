@@ -8,6 +8,17 @@ information future ne fuit vers le passé.
 Le résultat attendu — et systématiquement observé — est qu'aucune stratégie ne
 se distingue du hasard pur au-delà du bruit d'échantillonnage. C'est le cœur du
 projet : le démontrer plutôt que l'affirmer.
+
+La comparaison au hasard prend deux précautions, sans lesquelles ce module
+fabriquerait de faux signaux :
+
+* **appariement** — les grilles jouées sur un même tirage partagent la même
+  cible et ne sont donc pas indépendantes. On agrège d'abord par tirage, puis on
+  teste la différence appariée avec le témoin. Traiter les grilles comme
+  indépendantes gonflerait artificiellement le nombre d'observations ;
+* **tests multiples** — trois stratégies comparées au témoin, c'est trois chances
+  de tomber sur un p < 0,05 par pur hasard. La correction de Holm-Bonferroni s'en
+  charge.
 """
 
 from __future__ import annotations
@@ -45,12 +56,17 @@ class StrategyResult:
     label: str
     grids: int = 0
     matches: list[int] = field(default_factory=list, repr=False)
+    #: Une observation par tirage : la moyenne des grilles jouées sur ce tirage.
+    #: C'est l'unité statistique valide, la grille ne l'étant pas.
+    per_draw: list[float] = field(default_factory=list, repr=False)
     chance_hits: int = 0
     rank_hits: Counter = field(default_factory=Counter)
     winnings: float = 0.0
-    #: Comparaison au hasard pur, renseignée après coup.
+    #: Comparaison appariée au hasard pur, renseignée après coup.
     z_score: float = 0.0
     p_value: float = 1.0
+    #: p-value corrigée de la multiplicité des tests (Holm-Bonferroni).
+    p_value_holm: float = 1.0
 
     @property
     def stake(self) -> float:
@@ -80,9 +96,9 @@ class StrategyResult:
 
     @property
     def verdict(self) -> str:
-        if self.p_value >= 0.05:
+        if self.p_value_holm >= 0.05:
             return "indiscernable du hasard"
-        return "écart au hasard, mais attention au nombre de tests effectués"
+        return "écart au hasard résistant à la correction de Holm"
 
 
 @dataclass
@@ -99,7 +115,8 @@ class BacktestReport:
 
     @property
     def any_significant(self) -> bool:
-        return any(r.p_value < 0.05 for r in self.results if r.key != "uniforme")
+        """Une stratégie survit-elle à la correction pour tests multiples ?"""
+        return any(r.p_value_holm < 0.05 for r in self.results if r.key != "uniforme")
 
 
 def _sample_grid(
@@ -150,17 +167,20 @@ def run(
             )
             rng = random.Random(f"{strategy.key}:{target.date.isoformat()}")
             result = results[strategy.key]
+            draw_matches: list[int] = []
             for _ in range(repeats):
                 grid = _sample_grid(strategy, weights, profile, rng)
                 chance = _weighted_sample(ALL_CHANCES, chance_weights, 1, rng)[0]
                 hits, chance_hit = target.matches(grid, chance)
                 result.grids += 1
                 result.matches.append(hits)
+                draw_matches.append(hits)
                 result.chance_hits += int(chance_hit)
                 rank = rank_of(hits, chance_hit)
                 if rank is not None:
                     result.rank_hits[rank] += 1
                     result.winnings += target.ranks.get(rank, (0, 0.0))[1]
+            result.per_draw.append(sum(draw_matches) / len(draw_matches))
 
     ordered = [results[s.key] for s in strategies]
     _compare_to_random(ordered)
@@ -180,21 +200,49 @@ def _variance(values: Sequence[int], mean: float) -> float:
 
 
 def _compare_to_random(results: Sequence[StrategyResult]) -> None:
-    """Test de Welch de chaque stratégie contre le témoin « hasard pur »."""
+    """Test apparié de chaque stratégie contre le témoin « hasard pur ».
+
+    On compare tirage par tirage — même cible, même jour — puis on corrige les
+    p-values de la multiplicité des comparaisons. L'approximation normale de la
+    loi de Student est employée ; elle est excellente au-delà de cent tirages,
+    ce que le rodage impose de toute façon.
+    """
     baseline = next((r for r in results if r.key == "uniforme"), None)
-    if baseline is None or not baseline.matches:
+    if baseline is None or len(baseline.per_draw) < 2:
         return
-    base_mean = baseline.mean_matches
-    base_var = _variance(baseline.matches, base_mean)
+
+    tested: list[StrategyResult] = []
     for result in results:
-        if result is baseline or not result.matches:
+        if result is baseline or len(result.per_draw) != len(baseline.per_draw):
             continue
-        mean = result.mean_matches
-        variance = _variance(result.matches, mean)
-        standard_error = math.sqrt(
-            variance / len(result.matches) + base_var / len(baseline.matches)
-        )
+        differences = [
+            mine - theirs
+            for mine, theirs in zip(result.per_draw, baseline.per_draw, strict=True)
+        ]
+        mean = sum(differences) / len(differences)
+        variance = _variance(differences, mean)
+        standard_error = math.sqrt(variance / len(differences)) if variance else 0.0
         if standard_error == 0:
-            continue
-        result.z_score = (mean - base_mean) / standard_error
-        result.p_value = 2.0 * normal_sf(abs(result.z_score))
+            result.z_score, result.p_value = 0.0, 1.0
+        else:
+            result.z_score = mean / standard_error
+            result.p_value = 2.0 * normal_sf(abs(result.z_score))
+        tested.append(result)
+
+    _holm(tested)
+
+
+def _holm(results: Sequence[StrategyResult]) -> None:
+    """Correction de Holm-Bonferroni, appliquée en place.
+
+    Les p-values sont triées par ordre croissant et multipliées par le nombre de
+    tests restants ; la suite est ensuite rendue monotone. Plus puissante que
+    Bonferroni simple, et tout aussi rigoureuse.
+    """
+    ordered = sorted(results, key=lambda r: r.p_value)
+    total = len(ordered)
+    running = 0.0
+    for rank, result in enumerate(ordered):
+        adjusted = (total - rank) * result.p_value
+        running = max(running, min(1.0, adjusted))
+        result.p_value_holm = running

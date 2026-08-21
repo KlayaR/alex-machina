@@ -77,11 +77,18 @@ def diverging_bar_chart(
     data: Sequence[tuple[str, float]],
     *,
     height: int = 220,
-    row_height: int = 26,
+    row_height: int = 28,
     unit: str = " %",
     digits: int = 1,
+    positive_is_good: bool = True,
 ) -> str:
-    """Barres horizontales signées, centrées sur zéro."""
+    """Barres horizontales signées, à largeur fixe.
+
+    Contrairement aux barres verticales, ce graphique porte des libellés et des
+    valeurs qu'il faut pouvoir lire. Il ne se laisse donc pas réduire : sur un
+    écran étroit il défile horizontalement dans son conteneur, exactement comme
+    un tableau trop large.
+    """
     if not data:
         return ""
     label_width, value_width, padding = 132, 74, 8
@@ -101,8 +108,8 @@ def diverging_bar_chart(
         zero, usable = label_width + plot_width / 2, plot_width / 2
 
     parts = [
-        f'<svg class="chart" viewBox="0 0 {width} {height}" '
-        f'preserveAspectRatio="xMidYMid meet" role="img">',
+        f'<svg class="chart chart-fixed" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" role="img">',
         f'<line class="chart-ref" x1="{zero}" x2="{zero}" y1="{padding}" '
         f'y2="{height - padding}"/>',
     ]
@@ -110,7 +117,10 @@ def diverging_bar_chart(
         y = padding + index * row_height
         length = usable * abs(value) / span
         x = zero if value >= 0 else zero - length
-        css = "bar bar-positive" if value >= 0 else "bar bar-negative"
+        # Le signe ne dit pas si c'est une bonne nouvelle : plus de co-gagnants,
+        # c'est un chiffre positif et un moins bon gain.
+        favourable = (value >= 0) == positive_is_good
+        css = "bar bar-positive" if favourable else "bar bar-negative"
         parts.append(
             f'<text class="chart-label" x="{label_width - 10}" y="{y + row_height / 2 + 4:.1f}" '
             f'text-anchor="end">{_escape(label)}</text>'
