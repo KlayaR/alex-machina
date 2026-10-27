@@ -1,107 +1,107 @@
 {
-  "genere_le": "2026-10-25T10:49:17+00:00",
+  "genere_le": "2026-10-27T00:19:39+00:00",
   "avertissement": "Aucun de ces chiffres ne permet de prédire quoi que ce soit. Un tirage du Loto est indépendant de tous les précédents : les 1 906 884 combinaisons ont exactement la même probabilité, à chaque tirage, pour toujours. Ce site existe pour le montrer, pas pour le contourner.",
-  "tirages_analyses": 2825,
+  "tirages_analyses": 2826,
   "dernier_tirage": {
-    "date": "2026-10-24",
-    "jour": "samedi",
+    "date": "2026-10-26",
+    "jour": "lundi",
     "boules": [
       2,
-      9,
-      29,
-      44,
-      47
+      13,
+      14,
+      24,
+      25
     ],
-    "chance": 10,
+    "chance": 1,
     "rapports": {
       "1": {
         "gagnants": 0,
-        "rapport": 2000000.0
+        "rapport": 3000000.0
       },
       "2": {
-        "gagnants": 2,
-        "rapport": 112290.7
+        "gagnants": 1,
+        "rapport": 141693.2
       },
       "3": {
-        "gagnants": 36,
-        "rapport": 1522.6
+        "gagnants": 32,
+        "rapport": 1080.7
       },
       "4": {
-        "gagnants": 417,
-        "rapport": 474.1
+        "gagnants": 372,
+        "rapport": 335.3
       },
       "5": {
-        "gagnants": 1646,
-        "rapport": 71.7
+        "gagnants": 1280,
+        "rapport": 58.2
       },
       "6": {
-        "gagnants": 18603,
-        "rapport": 22.8
+        "gagnants": 16296,
+        "rapport": 16.4
       },
       "7": {
-        "gagnants": 23759,
-        "rapport": 13.9
+        "gagnants": 16288,
+        "rapport": 12.8
       },
       "8": {
-        "gagnants": 272030,
-        "rapport": 4.8
+        "gagnants": 211067,
+        "rapport": 3.9
       },
       "9": {
-        "gagnants": 323467,
+        "gagnants": 188155,
         "rapport": 2.2
       }
     }
   },
-  "prochain_tirage": "2026-10-26",
+  "prochain_tirage": "2026-10-28",
   "predictions": [
     {
       "strategie": "uniforme",
       "libelle": "Hasard pur",
       "boules": [
         15,
-        19,
-        23,
-        29,
-        38
+        34,
+        36,
+        37,
+        47
       ],
-      "chance": 7,
+      "chance": 6,
       "probabilite_rang1": 5.244157484146912e-08
     },
     {
       "strategie": "chauds",
       "libelle": "Numéros chauds",
       "boules": [
-        7,
-        16,
-        18,
-        29,
-        31
+        8,
+        17,
+        30,
+        36,
+        45
       ],
-      "chance": 7,
+      "chance": 4,
       "probabilite_rang1": 5.244157484146912e-08
     },
     {
       "strategie": "retards",
       "libelle": "Retardataires",
       "boules": [
-        7,
-        13,
-        14,
-        25,
-        41
+        10,
+        19,
+        26,
+        27,
+        47
       ],
-      "chance": 9,
+      "chance": 8,
       "probabilite_rang1": 5.244157484146912e-08
     },
     {
       "strategie": "machina",
       "libelle": "Alex Machina",
       "boules": [
-        10,
-        13,
-        24,
-        34,
-        41
+        6,
+        19,
+        22,
+        37,
+        38
       ],
       "chance": 5,
       "probabilite_rang1": 5.244157484146912e-08
@@ -110,168 +110,168 @@
   "grilles_contre_courant": [
     {
       "boules": [
-        21,
-        33,
-        35,
-        36,
-        40
+        24,
+        32,
+        34,
+        37,
+        38
       ],
       "chance": 1,
       "co_gagnants_relatifs": 0.6276,
-      "gain_relatif": 1.5935,
-      "gain_relatif_avec_chance": 2.1048
+      "gain_relatif": 1.5933,
+      "gain_relatif_avec_chance": 2.1082
     },
     {
       "boules": [
         15,
         33,
-        34,
         36,
-        47
+        37,
+        44
       ],
       "chance": 10,
       "co_gagnants_relatifs": 0.6276,
-      "gain_relatif": 1.5935,
-      "gain_relatif_avec_chance": 1.9952
+      "gain_relatif": 1.5933,
+      "gain_relatif_avec_chance": 1.9947
     },
     {
       "boules": [
-        23,
+        17,
         32,
         33,
         35,
-        42
+        48
       ],
       "chance": 2,
       "co_gagnants_relatifs": 0.6276,
-      "gain_relatif": 1.5935,
-      "gain_relatif_avec_chance": 1.8306
+      "gain_relatif": 1.5933,
+      "gain_relatif_avec_chance": 1.8301
     },
     {
       "boules": [
-        13,
+        17,
+        33,
         34,
-        35,
-        40,
-        43
+        36,
+        45
       ],
       "chance": 6,
       "co_gagnants_relatifs": 0.6276,
-      "gain_relatif": 1.5935,
-      "gain_relatif_avec_chance": 1.6994
+      "gain_relatif": 1.5933,
+      "gain_relatif_avec_chance": 1.6989
     },
     {
       "boules": [
-        14,
-        32,
-        33,
+        15,
+        35,
+        36,
         38,
-        48
+        40
       ],
       "chance": 4,
-      "co_gagnants_relatifs": 0.6276,
-      "gain_relatif": 1.5935,
-      "gain_relatif_avec_chance": 1.6296
+      "co_gagnants_relatifs": 0.6281,
+      "gain_relatif": 1.5921,
+      "gain_relatif_avec_chance": 1.628
     },
     {
       "boules": [
         13,
-        32,
+        33,
         35,
-        36,
-        48
+        41,
+        42
       ],
       "chance": 9,
-      "co_gagnants_relatifs": 0.628,
-      "gain_relatif": 1.5923,
-      "gain_relatif_avec_chance": 1.5652
+      "co_gagnants_relatifs": 0.6281,
+      "gain_relatif": 1.5921,
+      "gain_relatif_avec_chance": 1.5647
     }
   ],
   "biais_numero_chance": {
-    "tirages": 1508,
-    "periode": "2017-03-06 → 2026-10-24",
+    "tirages": 1509,
+    "periode": "2017-03-06 → 2026-10-26",
     "numeros": [
       {
         "numero": 1,
-        "co_gagnants_relatifs": 0.7571,
-        "effet_pct": -24.29,
-        "t": -25.52,
-        "gain_si_joue_pct": 32.09
+        "co_gagnants_relatifs": 0.7558,
+        "effet_pct": -24.42,
+        "t": -25.73,
+        "gain_si_joue_pct": 32.31
       },
       {
         "numero": 10,
-        "co_gagnants_relatifs": 0.7986,
-        "effet_pct": -20.14,
-        "t": -21.53,
-        "gain_si_joue_pct": 25.21
+        "co_gagnants_relatifs": 0.7988,
+        "effet_pct": -20.12,
+        "t": -21.5,
+        "gain_si_joue_pct": 25.19
       },
       {
         "numero": 2,
-        "co_gagnants_relatifs": 0.8704,
-        "effet_pct": -12.96,
-        "t": -13.38,
-        "gain_si_joue_pct": 14.88
+        "co_gagnants_relatifs": 0.8706,
+        "effet_pct": -12.94,
+        "t": -13.35,
+        "gain_si_joue_pct": 14.86
       },
       {
         "numero": 6,
-        "co_gagnants_relatifs": 0.9377,
-        "effet_pct": -6.23,
-        "t": -5.73,
-        "gain_si_joue_pct": 6.65
+        "co_gagnants_relatifs": 0.9379,
+        "effet_pct": -6.21,
+        "t": -5.7,
+        "gain_si_joue_pct": 6.63
       },
       {
         "numero": 4,
-        "co_gagnants_relatifs": 0.9778,
-        "effet_pct": -2.22,
-        "t": -2.06,
-        "gain_si_joue_pct": 2.27
+        "co_gagnants_relatifs": 0.978,
+        "effet_pct": -2.2,
+        "t": -2.04,
+        "gain_si_joue_pct": 2.25
       },
       {
         "numero": 9,
-        "co_gagnants_relatifs": 1.0173,
-        "effet_pct": 1.73,
-        "t": 1.68,
-        "gain_si_joue_pct": -1.7
+        "co_gagnants_relatifs": 1.0175,
+        "effet_pct": 1.75,
+        "t": 1.7,
+        "gain_si_joue_pct": -1.72
       },
       {
         "numero": 8,
-        "co_gagnants_relatifs": 1.0537,
-        "effet_pct": 5.37,
-        "t": 4.93,
-        "gain_si_joue_pct": -5.1
+        "co_gagnants_relatifs": 1.0539,
+        "effet_pct": 5.39,
+        "t": 4.95,
+        "gain_si_joue_pct": -5.12
       },
       {
         "numero": 3,
-        "co_gagnants_relatifs": 1.0831,
-        "effet_pct": 8.31,
-        "t": 7.65,
-        "gain_si_joue_pct": -7.67
+        "co_gagnants_relatifs": 1.0833,
+        "effet_pct": 8.33,
+        "t": 7.66,
+        "gain_si_joue_pct": -7.69
       },
       {
         "numero": 5,
-        "co_gagnants_relatifs": 1.1934,
-        "effet_pct": 19.34,
+        "co_gagnants_relatifs": 1.1936,
+        "effet_pct": 19.36,
         "t": 17.05,
-        "gain_si_joue_pct": -16.2
+        "gain_si_joue_pct": -16.22
       },
       {
         "numero": 7,
-        "co_gagnants_relatifs": 1.4957,
-        "effet_pct": 49.57,
-        "t": 38.1,
-        "gain_si_joue_pct": -33.14
+        "co_gagnants_relatifs": 1.4961,
+        "effet_pct": 49.61,
+        "t": 38.08,
+        "gain_si_joue_pct": -33.16
       }
     ]
   },
   "uniformite": {
-    "khi2": 37.062,
+    "khi2": 37.041,
     "ddl": 48,
-    "p_value": 0.8739,
+    "p_value": 0.8744,
     "verdict": "compatible avec un tirage parfaitement uniforme"
   },
   "frequences": {
     "1": 290,
-    "2": 278,
+    "2": 279,
     "3": 304,
     "4": 293,
     "5": 291,
@@ -282,8 +282,8 @@
     "10": 287,
     "11": 271,
     "12": 279,
-    "13": 326,
-    "14": 267,
+    "13": 327,
+    "14": 268,
     "15": 315,
     "16": 301,
     "17": 286,
@@ -293,8 +293,8 @@
     "21": 277,
     "22": 317,
     "23": 290,
-    "24": 293,
-    "25": 274,
+    "24": 294,
+    "25": 275,
     "26": 298,
     "27": 287,
     "28": 290,
@@ -321,69 +321,69 @@
     "49": 292
   },
   "retards": {
-    "1": 16,
+    "1": 17,
     "2": 0,
-    "3": 2,
-    "4": 2,
-    "5": 16,
-    "6": 7,
-    "7": 1,
-    "8": 8,
-    "9": 0,
-    "10": 9,
-    "11": 15,
-    "12": 15,
-    "13": 16,
-    "14": 12,
-    "15": 13,
-    "16": 8,
-    "17": 2,
-    "18": 1,
-    "19": 32,
-    "20": 4,
-    "21": 13,
-    "22": 6,
-    "23": 19,
-    "24": 34,
-    "25": 10,
-    "26": 3,
-    "27": 37,
-    "28": 2,
-    "29": 0,
-    "30": 1,
-    "31": 1,
-    "32": 4,
-    "33": 3,
-    "34": 7,
-    "35": 5,
-    "36": 4,
-    "37": 25,
-    "38": 2,
-    "39": 8,
-    "40": 3,
-    "41": 35,
-    "42": 7,
-    "43": 14,
-    "44": 0,
-    "45": 1,
-    "46": 4,
-    "47": 0,
-    "48": 11,
-    "49": 6
+    "3": 3,
+    "4": 3,
+    "5": 17,
+    "6": 8,
+    "7": 2,
+    "8": 9,
+    "9": 1,
+    "10": 10,
+    "11": 16,
+    "12": 16,
+    "13": 0,
+    "14": 0,
+    "15": 14,
+    "16": 9,
+    "17": 3,
+    "18": 2,
+    "19": 33,
+    "20": 5,
+    "21": 14,
+    "22": 7,
+    "23": 20,
+    "24": 0,
+    "25": 0,
+    "26": 4,
+    "27": 38,
+    "28": 3,
+    "29": 1,
+    "30": 2,
+    "31": 2,
+    "32": 5,
+    "33": 4,
+    "34": 8,
+    "35": 6,
+    "36": 5,
+    "37": 26,
+    "38": 3,
+    "39": 9,
+    "40": 4,
+    "41": 36,
+    "42": 8,
+    "43": 15,
+    "44": 1,
+    "45": 2,
+    "46": 5,
+    "47": 1,
+    "48": 12,
+    "49": 7
   },
   "backtest": {
     "periode": [
-      "2024-04-06",
-      "2026-10-24"
+      "2024-04-08",
+      "2026-10-26"
     ],
     "tirages": 400,
     "resultats": [
       {
         "strategie": "uniforme",
         "grilles": 1200,
-        "bons_numeros_moyens": 0.5325,
+        "bons_numeros_moyens": 0.53,
         "taux_grilles_gagnantes": 0.1533,
-        "retour_sur_mise_pct": -69.72,
+        "retour_sur_mise_pct": -70.49,
         "p_value_vs_hasard": 1.0,
         "p_value_holm": 1.0
       },
@@ -393,33 +393,33 @@
         "bons_numeros_moyens": 0.4875,
         "taux_grilles_gagnantes": 0.165,
         "retour_sur_mise_pct": -71.06,
-        "p_value_vs_hasard": 0.1084,
-        "p_value_holm": 0.2726
+        "p_value_vs_hasard": 0.1291,
+        "p_value_holm": 0.3873
       },
       {
         "strategie": "retards",
         "grilles": 1200,
-        "bons_numeros_moyens": 0.5033,
-        "taux_grilles_gagnantes": 0.1708,
-        "retour_sur_mise_pct": -59.47,
-        "p_value_vs_hasard": 0.3101,
-        "p_value_holm": 0.3101
+        "bons_numeros_moyens": 0.5042,
+        "taux_grilles_gagnantes": 0.1717,
+        "retour_sur_mise_pct": -59.62,
+        "p_value_vs_hasard": 0.3704,
+        "p_value_holm": 0.3873
       },
       {
         "strategie": "machina",
         "grilles": 1200,
-        "bons_numeros_moyens": 0.4858,
-        "taux_grilles_gagnantes": 0.1617,
-        "retour_sur_mise_pct": -70.37,
-        "p_value_vs_hasard": 0.0909,
-        "p_value_holm": 0.2726
+        "bons_numeros_moyens": 0.4883,
+        "taux_grilles_gagnantes": 0.1625,
+        "retour_sur_mise_pct": -70.22,
+        "p_value_vs_hasard": 0.1314,
+        "p_value_holm": 0.3873
       }
     ]
   },
   "economie": {
     "prix_grille": 2.2,
-    "esperance_gain": 1.0858,
-    "perte_moyenne": 1.1142,
+    "esperance_gain": 1.0857,
+    "perte_moyenne": 1.1143,
     "taux_de_retour_pct": 49.35
   }
 }
